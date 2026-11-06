@@ -9,7 +9,7 @@ class FuelProductSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['Unleaded 91', 'Premium 95', 'Diesel'] as $name) {
+        foreach (['Unleaded', 'Premium', 'Diesel'] as $name) {
             FuelProduct::firstOrCreate(
                 ['name' => $name],
                 ['unit' => 'liter', 'is_active' => true],

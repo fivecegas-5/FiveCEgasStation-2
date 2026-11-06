@@ -26,6 +26,7 @@ class User extends Authenticatable
         'password',
         'role',
         'branch_id',
+        'is_active',
     ];
 
     /**
@@ -50,6 +51,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'branch_id' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -65,7 +67,7 @@ class User extends Authenticatable
 
     public function canAccessBranch(Branch|int $branch): bool
     {
-        return $this->isOwner()
-            || ($this->branch_id !== null && $this->branch_id === ($branch instanceof Branch ? $branch->id : $branch));
+        return ($this->isOwner() && $this->branch_id === null)
+            || $this->branch_id === ($branch instanceof Branch ? $branch->id : $branch);
     }
 }

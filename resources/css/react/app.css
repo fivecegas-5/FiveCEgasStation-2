@@ -1,0 +1,77 @@
+.react-import-page { display: grid; gap: 16px; }
+.react-import-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(250px, .75fr); gap: 16px; align-items: stretch; }
+.react-import-form { padding: 18px 20px 20px; }
+.react-import-form .form-hint > span:last-child { display: block; width: auto; margin: 0; border-radius: 0; color: inherit; background: transparent; font-size: 9px; font-weight: 400; }
+.react-import-form .button-wide { display: flex; width: 100%; justify-content: space-between; white-space: nowrap; }
+.react-button-label { flex: 1; text-align: left; }
+.react-file-picker { display: grid; justify-items: center; gap: 8px; padding: 26px 18px; border: 1px dashed #cbd4df; border-radius: 9px; color: #435267; background: #fafbfd; cursor: pointer; text-align: center; }
+.react-file-picker:hover, .react-file-picker:focus-within { border-color: #cf4752; background: #fffafb; }
+.react-file-picker > strong { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; }
+.react-file-picker > small { color: #8793a1; font-size: 9px; line-height: 1.6; }
+.react-file-picker input { width: min(100%, 300px); color: #667487; font-size: 10px; }
+.react-upload-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; color: #bd3543; background: #fff0f2; font-size: 22px; font-weight: 700; }
+.react-import-guide { padding: 21px; }
+.react-import-guide h3 { margin: 8px 0; color: #2b394c; font-size: 16px; }
+.react-import-guide > p { margin: 0; color: #7d8998; font-size: 10px; line-height: 1.7; }
+.react-import-guide ol { display: grid; gap: 11px; margin: 16px 0 0; padding: 0; list-style: none; }
+.react-import-guide li { display: flex; align-items: center; gap: 9px; color: #526074; font-size: 10px; }
+.react-import-guide li > span { display: grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #a42d39; background: #fff0f2; font-size: 9px; font-weight: 800; }
+.react-import-preview .panel-heading { align-items: flex-start; }
+.react-import-summary { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.react-valid-count, .react-invalid-count, .react-batch-status { display: inline-flex; align-items: center; width: fit-content; padding: 4px 7px; border-radius: 5px; background: #eef9f3; color: #27805a; font-size: 9px; font-weight: 700; text-transform: capitalize; }
+.react-invalid-count { background: #fff0f1; color: #aa3540; }
+.react-batch-status { background: #f2f5f8; color: #6b7787; }
+.react-row-errors { min-width: 150px; margin: 5px 0 0; padding-left: 14px; color: #a23640; font-size: 9px; line-height: 1.5; white-space: normal; }
+.react-import-confirm { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 17px; border-top: 1px solid #edf0f4; }
+.react-import-confirm p { margin: 0; color: #727f8f; font-size: 10px; line-height: 1.6; }
+.react-import-confirm .button { flex: 0 0 auto; }
+.button:disabled { cursor: not-allowed; opacity: .58; transform: none; }
+
+.fuel-sales-entry { display: grid; gap: 18px; }
+.fuel-sales-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.fuel-sales-heading h2 { margin: 4px 0 6px; color: #233247; font-size: 22px; }
+.fuel-sales-heading p { max-width: 650px; margin: 0; color: #748194; font-size: 12px; line-height: 1.6; }
+.fuel-sales-branch { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid #e8edf2; border-radius: 999px; color: #566478; background: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.fuel-sales-form { display: grid; gap: 18px; padding: 20px; border: 1px solid #e9edf2; border-radius: 12px; background: #fff; box-shadow: 0 5px 18px #17243b08; }
+.fuel-choice-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.fuel-choice-fieldset legend { margin-bottom: 10px; color: #526074; font-size: 12px; font-weight: 750; }
+.fuel-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fuel-choice { display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 9px 11px; min-width: 0; padding: 13px; border: 1px solid #e4e9ef; border-radius: 10px; color: #354357; background: #fff; cursor: pointer; text-align: left; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.fuel-choice:hover:not(:disabled) { border-color: #c24a52; box-shadow: 0 4px 12px #a8323c12; }
+.fuel-choice.is-selected { border-color: #bd3b46; background: #fffafb; box-shadow: 0 0 0 2px #bd3b4612; }
+.fuel-choice:disabled { cursor: not-allowed; opacity: .58; }
+.fuel-choice-icon { display: grid; width: 42px; height: 42px; grid-row: span 2; place-items: center; border-radius: 10px; color: #b3313c; background: #fff0f1; }
+.fuel-icon-premium { color: #ad7416; background: #fff7e7; }
+.fuel-icon-diesel { color: #356a91; background: #edf6fc; }
+.fuel-choice-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.fuel-icon-premium svg { fill: currentColor; stroke: currentColor; }
+.fuel-choice-copy { display: grid; gap: 3px; min-width: 0; }
+.fuel-choice-copy strong { color: #253348; font-size: 13px; }
+.fuel-choice-copy small { overflow: hidden; color: #8490a0; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.fuel-choice-price { display: grid; grid-column: 2; gap: 3px; color: #46566b; font-size: 11px; font-weight: 750; }
+.fuel-choice-price small { color: #a06a34; font-size: 9px; font-weight: 600; }
+.fuel-sale-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 14px; padding-top: 16px; border-top: 1px solid #edf0f4; }
+.fuel-sale-fields > label { display: grid; gap: 6px; color: #46556a; font-size: 11px; font-weight: 700; }
+.fuel-sale-fields input, .fuel-sale-fields select { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #dfe5ec; border-radius: 7px; color: #28374b; background: #fff; font: inherit; font-size: 12px; }
+.fuel-sale-fields input:focus, .fuel-sale-fields select:focus { outline: 2px solid #bd3b4626; border-color: #bd3b46; }
+.fuel-sale-total { display: flex; grid-column: 1 / -1; justify-content: space-between; gap: 16px; padding: 13px 15px; border: 1px solid #f0e2e3; border-radius: 9px; background: #fffafb; }
+.fuel-sale-total > span { display: grid; gap: 5px; }
+.fuel-sale-total small { color: #8b7275; font-size: 9px; font-weight: 750; letter-spacing: .55px; }
+.fuel-sale-total strong { color: #aa303b; font-size: 18px; }
+.fuel-sale-total > span:first-child strong { color: #47576b; font-size: 14px; }
+.fuel-sale-submit { grid-column: 1 / -1; justify-self: end; min-width: 190px; }
+.fuel-sale-submit:disabled { cursor: wait; opacity: .68; }
+.fuel-sales-empty, .fuel-sales-fallback { padding: 22px; }
+.fuel-sales-empty p, .fuel-sales-fallback p { margin: 6px 0 0; color: #7d8998; font-size: 12px; }
+@media (max-width: 760px) {
+    .react-import-grid { grid-template-columns: 1fr; }
+    .react-import-preview .panel-heading { flex-direction: column; }
+    .react-import-summary { justify-content: flex-start; }
+    .react-import-confirm { align-items: stretch; flex-direction: column; }
+    .react-import-confirm .button { width: 100%; }
+    .fuel-sales-heading { flex-direction: column; }
+    .fuel-choice-grid { grid-template-columns: 1fr; }
+    .fuel-sale-fields { grid-template-columns: 1fr; }
+    .fuel-sale-total { grid-column: auto; }
+    .fuel-sale-submit { grid-column: auto; width: 100%; }
+}

@@ -12,7 +12,7 @@ class FuelPump extends Model
 {
     use HasFactory, ScopesToBranch;
 
-    protected $fillable = ['branch_id', 'code', 'is_active'];
+    protected $fillable = ['branch_id', 'code', 'label', 'is_active'];
 
     protected function casts(): array
     {

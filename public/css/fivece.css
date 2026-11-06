@@ -35,6 +35,11 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .brand-copy strong { color: white; font-family: var(--font-display); font-size: 14px; font-weight: 800; letter-spacing: .1px; white-space: nowrap; }
 .brand-copy small { color: #98a7ba; font-size: 8px; font-weight: 700; letter-spacing: 1.75px; }
 .branch-indicator { display: flex; align-items: center; gap: 9px; margin: 31px 3px 28px; padding: 11px 12px; border: 1px solid #ffffff14; border-radius: 9px; color: #dbe3eb; background: #ffffff08; font-size: 12px; font-weight: 600; }
+.branch-context-form { display: grid; gap: 8px; margin: 23px 3px 20px; }
+.branch-context-form label { color: #98a7ba; font-size: 10px; font-weight: 700; }
+.branch-context-form select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #ffffff22; border-radius: 8px; color: #f8fafc; background: #ffffff0d; font: inherit; font-size: 12px; }
+.branch-context-form select option { color: #17233a; }
+.branch-context-form .button { min-height: 34px; padding: 7px 10px; color: #f8fafc; background: #ffffff14; border-color: #ffffff22; font-size: 11px; }
 .live-dot { display: inline-block; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #55c99a; box-shadow: 0 0 0 3px #55c99a1e; }
 .side-nav { display: flex; min-height: 0; flex-direction: column; gap: 5px; overflow-y: auto; scrollbar-width: none; }
 .side-nav::-webkit-scrollbar { display: none; }

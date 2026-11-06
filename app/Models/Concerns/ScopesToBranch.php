@@ -2,7 +2,6 @@
 
 namespace App\Models\Concerns;
 
-use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -10,7 +9,7 @@ trait ScopesToBranch
 {
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->role === UserRole::Owner) {
+        if ($user->isOwner() && $user->branch_id === null) {
             return $query;
         }
 

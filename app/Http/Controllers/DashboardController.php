@@ -2,19 +2,67 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
-use App\Models\Branch;
 use App\Models\FuelDelivery;
 use App\Models\FuelSale;
 use App\Models\FuelTank;
 use App\Models\InventoryMovement;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request): View|RedirectResponse
+    {
+        if (! $request->user()->isOwner()) {
+            return redirect()->route('sales.index');
+        }
+
+        return view('dashboard');
+    }
+
+    public function data(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $dashboard = $this->dashboardData($request);
+
+        return response()->json([
+            'user' => [
+                'name' => $user->name,
+                'branch' => $user->isOwner() && $user->branch_id === null
+                    ? 'All branches'
+                    : $user->branch?->name,
+            ],
+            'can_manage' => $user->isOwner(),
+            'inventory' => $dashboard['inventoryByProduct']->map(fn (array $inventory): array => [
+                'product' => $inventory['product']->name,
+                'branch' => $inventory['branch'],
+                'stock_liters' => $inventory['stock'],
+                'capacity_liters' => $inventory['capacity'],
+                'tank_count' => $inventory['tank_count'],
+                'stock_percentage' => $inventory['percentage'],
+            ])->values(),
+            'tanks' => $dashboard['chartTanks'],
+            'recent_transactions' => $dashboard['recentTransactions']->map(function (array $transaction): array {
+                $movement = $transaction['movement'];
+
+                return [
+                    'date' => $movement->occurred_at->format('M j'),
+                    'time' => $movement->occurred_at->format('g:i A'),
+                    'type' => $transaction['type'],
+                    'direction' => $transaction['direction'],
+                    'fuel' => $movement->tank->fuelProduct->name,
+                    'branch' => $movement->branch->name,
+                    'liters' => abs((float) $movement->signed_quantity_liters),
+                    'amount' => $transaction['amount'],
+                ];
+            })->values(),
+        ]);
+    }
+
+    private function dashboardData(Request $request): array
     {
         $user = $request->user();
         $movements = InventoryMovement::visibleTo($user);
@@ -26,7 +74,7 @@ class DashboardController extends Controller
             ->pluck('stock_liters', 'fuel_tank_id');
 
         $inventoryByProduct = $tanks
-            ->groupBy('fuel_product_id')
+            ->groupBy(fn (FuelTank $tank): string => $tank->branch_id.'-'.$tank->fuel_product_id)
             ->map(function (Collection $productTanks) use ($stockByTank): array {
                 $firstTank = $productTanks->first();
                 $capacity = (float) $productTanks->sum('capacity_liters');
@@ -36,6 +84,7 @@ class DashboardController extends Controller
 
                 return [
                     'product' => $firstTank->fuelProduct,
+                    'branch' => $firstTank->branch->name,
                     'stock' => $stock,
                     'capacity' => $capacity,
                     'tank_count' => $productTanks->count(),
@@ -88,13 +137,11 @@ class DashboardController extends Controller
                 ];
             });
 
-        return view('dashboard', [
+        return [
             'tanks' => $tanks,
             'inventoryByProduct' => $inventoryByProduct,
             'chartTanks' => $chartTanks,
             'recentTransactions' => $recentTransactions,
-            'canManage' => in_array($user->role, [UserRole::Owner, UserRole::Manager], true),
-            'branches' => $user->isOwner() ? Branch::where('is_active', true)->orderBy('name')->get() : collect(),
-        ]);
+        ];
     }
 }

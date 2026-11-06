@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +20,7 @@ class Branch extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->role === UserRole::Owner) {
+        if ($user->isOwner() && $user->branch_id === null) {
             return $query;
         }
 
@@ -68,5 +67,15 @@ class Branch extends Model
     public function inventoryMovements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    public function fuelCreditCustomers(): HasMany
+    {
+        return $this->hasMany(FuelCreditCustomer::class);
+    }
+
+    public function fuelCreditAgreements(): HasMany
+    {
+        return $this->hasMany(FuelCreditAgreement::class);
     }
 }

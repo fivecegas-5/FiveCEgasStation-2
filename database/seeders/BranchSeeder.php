@@ -11,12 +11,12 @@ class BranchSeeder extends Seeder
     {
         Branch::updateOrCreate(
             ['code' => 'manaoag'],
-            ['name' => 'Manaoag', 'address' => 'Manaoag, Pangasinan', 'is_active' => true],
+            ['name' => 'Manaoag', 'address' => 'Cabanbanan, Manaoag, Pangasinan', 'is_active' => true],
         );
 
         Branch::updateOrCreate(
             ['code' => 'san-fabian'],
-            ['name' => 'San Fabian', 'address' => 'San Fabian, Pangasinan', 'is_active' => true],
+            ['name' => 'San Fabian', 'address' => 'Bolasi, San Fabian, Pangasinan', 'is_active' => true],
         );
     }
 }

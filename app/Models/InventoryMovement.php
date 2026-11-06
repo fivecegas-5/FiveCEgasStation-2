@@ -12,11 +12,18 @@ class InventoryMovement extends Model
 {
     use HasFactory, ScopesToBranch;
 
-    protected $fillable = ['branch_id', 'fuel_tank_id', 'movement_type', 'signed_quantity_liters', 'recorded_by', 'occurred_at'];
+    protected $fillable = [
+        'branch_id', 'fuel_tank_id', 'movement_type', 'signed_quantity_liters',
+        'unit_cost_per_liter', 'recorded_by', 'occurred_at',
+    ];
 
     protected function casts(): array
     {
-        return ['signed_quantity_liters' => 'decimal:3', 'occurred_at' => 'datetime'];
+        return [
+            'signed_quantity_liters' => 'decimal:3',
+            'unit_cost_per_liter' => 'decimal:2',
+            'occurred_at' => 'datetime',
+        ];
     }
 
     public function branch(): BelongsTo

@@ -15,7 +15,8 @@ class FuelDelivery extends Model
     protected $fillable = [
         'branch_id', 'fuel_tank_id', 'supplier_name', 'delivery_reference', 'delivered_liters',
         'cost_per_liter', 'total_cost', 'received_at', 'recorded_by', 'status', 'reviewed_by',
-        'reviewed_at', 'review_notes',
+        'reviewed_at', 'review_notes', 'invoice_path', 'invoice_original_name',
+        'invoice_mime_type', 'invoice_size_bytes',
     ];
 
     protected function casts(): array

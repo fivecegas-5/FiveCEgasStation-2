@@ -80,7 +80,7 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::attempt($credentials + ['is_active' => true], $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => 'Those credentials did not match an account.',
             ]);
@@ -88,7 +88,11 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        $destination = $request->user()->isOwner()
+            ? route('dashboard')
+            : route('sales.index');
+
+        return redirect()->intended($destination);
     }
 
     public function destroy(Request $request): RedirectResponse

@@ -12,11 +12,18 @@ class Shift extends Model
 {
     use HasFactory, ScopesToBranch;
 
-    protected $fillable = ['branch_id', 'opened_by', 'closed_by', 'opened_at', 'closed_at', 'status', 'notes'];
+    protected $fillable = [
+        'branch_id', 'opened_by', 'closed_by', 'opened_at', 'closed_at',
+        'status', 'notes', 'closing_summary',
+    ];
 
     protected function casts(): array
     {
-        return ['opened_at' => 'datetime', 'closed_at' => 'datetime'];
+        return [
+            'opened_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'closing_summary' => 'array',
+        ];
     }
 
     public function branch(): BelongsTo

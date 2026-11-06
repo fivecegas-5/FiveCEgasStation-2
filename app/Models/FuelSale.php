@@ -6,6 +6,7 @@ use App\Models\Concerns\ScopesToBranch;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class FuelSale extends Model
@@ -16,6 +17,7 @@ class FuelSale extends Model
         'branch_id', 'fuel_nozzle_id', 'fuel_product_id', 'shift_id', 'fuel_price_id',
         'receipt_number', 'liters', 'price_per_liter', 'total_amount', 'payment_method',
         'sold_at', 'recorded_by', 'status', 'voided_by', 'voided_at', 'void_reason',
+        'sales_import_batch_id', 'source_system_transaction_id',
     ];
 
     protected function casts(): array
@@ -62,5 +64,15 @@ class FuelSale extends Model
     public function inventoryMovements(): MorphMany
     {
         return $this->morphMany(InventoryMovement::class, 'source');
+    }
+
+    public function salesImportBatch(): BelongsTo
+    {
+        return $this->belongsTo(SalesImportBatch::class);
+    }
+
+    public function creditAgreement(): HasOne
+    {
+        return $this->hasOne(FuelCreditAgreement::class);
     }
 }

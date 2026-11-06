@@ -13,11 +13,22 @@ class FuelTank extends Model
 {
     use HasFactory, ScopesToBranch;
 
-    protected $fillable = ['branch_id', 'fuel_product_id', 'code', 'capacity_liters', 'is_active'];
+    protected $fillable = [
+        'branch_id',
+        'fuel_product_id',
+        'code',
+        'capacity_liters',
+        'low_stock_threshold_liters',
+        'is_active',
+    ];
 
     protected function casts(): array
     {
-        return ['capacity_liters' => 'decimal:3', 'is_active' => 'boolean'];
+        return [
+            'capacity_liters' => 'decimal:3',
+            'low_stock_threshold_liters' => 'decimal:3',
+            'is_active' => 'boolean',
+        ];
     }
 
     public function branch(): BelongsTo
