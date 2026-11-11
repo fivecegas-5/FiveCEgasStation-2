@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { requestJson } from './api.js';
+import { requestJson } from './pages/api.js';
 import { FuelCredit } from './pages/FuelCredit.jsx';
 import WorkspacePage from './pages/WorkspacePages.jsx';
 

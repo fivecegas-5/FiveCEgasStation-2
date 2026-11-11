@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { requestJson } from '../api.js';
+import { requestJson } from './api.js';
 
 const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 const money = (value) => `₱${Number(value ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { requestJson } from '../api.js';
+import { requestJson } from './api.js';
 
 const currency = new Intl.NumberFormat('en-PH', {
     style: 'currency',
