@@ -90,8 +90,8 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .wave { display: inline-block; margin-left: 3px; color: var(--amber); font-size: 16px; vertical-align: 3px; }
 .button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 9px; padding: 0 15px; border: 1px solid transparent; border-radius: 7px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background .18s, transform .18s, box-shadow .18s; }
 .button:hover { transform: translateY(-1px); }
-.button-primary { color: white; background: var(--red); box-shadow: 0 4px 10px #d62f3d24; }
-.button-primary:hover { background: var(--red-dark); box-shadow: 0 6px 13px #d62f3d33; }
+.button-primary { color: white; background: #9f1239; box-shadow: 0 4px 10px #9f123924; }
+.button-primary:hover { background: #881337; box-shadow: 0 6px 13px #88133733; }
 .button-secondary { border-color: #e2e7ec; color: #39475a; background: white; }
 .button-small { min-height: 31px; padding: 0 11px; font-size: 10px; }
 .button-wide { width: 100%; min-height: 45px; justify-content: space-between; padding: 0 17px; }

@@ -12,7 +12,7 @@ class FuelCreditCustomer extends Model
 {
     use HasFactory, ScopesToBranch;
 
-    protected $fillable = ['branch_id', 'name', 'phone', 'created_by', 'is_active'];
+    protected $fillable = ['branch_id', 'name', 'email', 'phone', 'created_by', 'is_active'];
 
     protected function casts(): array
     {

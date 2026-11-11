@@ -44,12 +44,12 @@ Route::middleware(['auth', 'active'])->group(function (): void {
             ->name('api.sales.import-batches.show');
         Route::post('/api/sales/import-batches/{batch}/confirm', [SalesImportController::class, 'confirm'])
             ->name('api.sales.import-batches.confirm');
-        Route::get('/sales/import', [SalesImportController::class, 'page'])
-            ->name('sales.import.page');
         Route::get('/credit', static fn () => view('operations.credit'))->name('credit.index');
     });
     Route::get('/api/notifications', [NotificationController::class, 'index'])
         ->name('api.notifications.index');
+    Route::patch('/api/notifications/read-all', [NotificationController::class, 'markAllRead'])
+        ->name('api.notifications.read-all');
     Route::patch('/api/notifications/{notification}/read', [NotificationController::class, 'markRead'])
         ->name('api.notifications.read');
     Route::get('/sales', [FuelOperationController::class, 'sales'])
@@ -137,6 +137,10 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
         Route::get('/api/credit/customers', [FuelCreditController::class, 'customers'])
             ->name('api.credit.customers.index');
+        Route::get('/api/credit/customers/export.csv', [FuelCreditController::class, 'exportCustomers'])
+            ->name('api.credit.customers.export');
+        Route::post('/api/credit/customers/import', [FuelCreditController::class, 'importCustomers'])
+            ->name('api.credit.customers.import');
         Route::post('/api/credit/customers', [FuelCreditController::class, 'storeCustomer'])
             ->name('api.credit.customers.store');
         Route::put('/api/credit/customers/{customer}', [FuelCreditController::class, 'updateCustomer'])

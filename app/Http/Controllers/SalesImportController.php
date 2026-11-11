@@ -24,18 +24,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class SalesImportController extends Controller
 {
     use ResolvesBranchContext;
-
-    public function page(): View
-    {
-        return view('operations.sales-import');
-    }
 
     public function index(Request $request): JsonResponse
     {

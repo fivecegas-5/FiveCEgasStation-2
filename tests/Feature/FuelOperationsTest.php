@@ -174,7 +174,9 @@ class FuelOperationsTest extends TestCase
             $this->assertSame($account['branch']->id, User::where('email', $account['email'])->value('branch_id'));
         }
 
-        $this->actingAs($owner)->get(route('sales.index'))->assertStatus(422);
+        $this->actingAs($owner)->get(route('sales.index'))
+            ->assertOk();
+        $this->assertSame($manaoag->id, session('active_branch_id'));
         $this->actingAs($owner)->post(route('branch-context.update'), ['branch_id' => $sanFabian->id])
             ->assertRedirect();
         $this->assertSame($sanFabian->id, session('active_branch_id'));
@@ -214,7 +216,7 @@ class FuelOperationsTest extends TestCase
             ->assertSee('data-role="staff"', false);
         $this->get(route('dashboard'))->assertRedirect(route('sales.index'));
         $this->get(route('users.index'))->assertForbidden();
-        $this->get(route('sales.import.page'))->assertForbidden();
+        $this->get('/sales/import')->assertMethodNotAllowed();
     }
 
     public function test_staff_records_liters_against_selected_fuel_and_stock_updates_for_owner(): void
@@ -717,6 +719,105 @@ class FuelOperationsTest extends TestCase
         ])->assertNotFound();
     }
 
+    public function test_adding_price_at_an_existing_effective_time_succeeds_and_updates_the_selected_branch_system(): void
+    {
+        [$branch, $otherBranch] = $this->branches();
+        $manager = User::factory()->create(['role' => UserRole::Owner, 'branch_id' => $branch->id]);
+        $otherManager = User::factory()->create(['role' => UserRole::Owner, 'branch_id' => $otherBranch->id]);
+        [$tank, $nozzle, $product] = $this->stationEquipment($branch);
+        $effectiveFrom = now()->copy()->addMinute()->startOfSecond();
+
+        FuelPrice::create([
+            'branch_id' => $branch->id,
+            'fuel_product_id' => $product->id,
+            'price_per_liter' => '60.00',
+            'effective_from' => $effectiveFrom,
+            'set_by' => $manager->id,
+        ]);
+        FuelPrice::create([
+            'branch_id' => $otherBranch->id,
+            'fuel_product_id' => $product->id,
+            'price_per_liter' => '80.00',
+            'effective_from' => now()->subHour(),
+            'set_by' => $otherManager->id,
+        ]);
+
+        $this->actingAs($manager)->post(route('setup.prices'), [
+            'fuel_product_id' => $product->id,
+            'price_per_liter' => '70.50',
+            'effective_from' => $effectiveFrom->format('Y-m-d\TH:i:s'),
+        ])->assertRedirect()
+            ->assertSessionHas('success', 'Fuel price saved. The selected effective time was already in use, so this price starts at the next available second.');
+
+        $newPrice = FuelPrice::query()
+            ->where('branch_id', $branch->id)
+            ->where('fuel_product_id', $product->id)
+            ->where('price_per_liter', '70.50')
+            ->firstOrFail();
+        $this->assertTrue($newPrice->effective_from->equalTo($effectiveFrom->copy()->addSecond()));
+
+        $this->travelTo($effectiveFrom->copy()->addSeconds(3));
+        $this->actingAs($manager)->getJson(route('api.workspace'))->assertOk()
+            ->assertJsonPath('prices.0.price_per_liter', 70.5);
+
+        app(InventoryLedger::class)->record($tank, 'opening_balance', 100, $manager, $tank, now()->subMinute());
+        $this->actingAs($manager)->post(route('sales.store'), [
+            'fuel_nozzle_id' => $nozzle->id,
+            'liters' => '10',
+            'receipt_number' => 'PRICE-UPDATE-001',
+            'sold_at' => now()->format('Y-m-d H:i:s'),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('fuel_sales', [
+            'branch_id' => $branch->id,
+            'fuel_product_id' => $product->id,
+            'fuel_price_id' => $newPrice->id,
+            'price_per_liter' => '70.50',
+            'total_amount' => '705.00',
+        ]);
+        $this->assertDatabaseHas('fuel_prices', [
+            'branch_id' => $otherBranch->id,
+            'fuel_product_id' => $product->id,
+            'price_per_liter' => '80.00',
+        ]);
+    }
+
+    public function test_current_minute_price_updates_take_effect_immediately_and_keep_fuel_order_stable(): void
+    {
+        [$branch] = $this->branches();
+        $manager = User::factory()->create(['role' => UserRole::Owner, 'branch_id' => $branch->id]);
+        app(FuelProductSeeder::class)->run();
+        $products = FuelProduct::query()->whereIn('name', ['Unleaded', 'Premium', 'Diesel'])->get()->keyBy('name');
+
+        foreach (['Unleaded', 'Premium', 'Diesel'] as $name) {
+            FuelPrice::create([
+                'branch_id' => $branch->id,
+                'fuel_product_id' => $products[$name]->id,
+                'price_per_liter' => '60.00',
+                'effective_from' => now()->subHour(),
+                'set_by' => $manager->id,
+            ]);
+        }
+
+        $this->travelTo(now()->startOfMinute()->addSeconds(30));
+        $effectiveFrom = now()->format('Y-m-d\TH:i');
+        foreach (['Unleaded' => '84.57', 'Premium' => '74.23'] as $name => $newPrice) {
+            $this->actingAs($manager)->post(route('setup.prices'), [
+                'fuel_product_id' => $products[$name]->id,
+                'price_per_liter' => $newPrice,
+                'effective_from' => $effectiveFrom,
+            ])->assertRedirect();
+        }
+
+        $this->actingAs($manager)->getJson(route('api.workspace'))->assertOk()
+            ->assertJsonPath('prices.0.fuel', 'Unleaded')
+            ->assertJsonPath('prices.0.price_per_liter', 84.57)
+            ->assertJsonPath('prices.1.fuel', 'Premium')
+            ->assertJsonPath('prices.1.price_per_liter', 74.23)
+            ->assertJsonPath('prices.2.fuel', 'Diesel')
+            ->assertJsonPath('prices.2.price_per_liter', 60);
+    }
+
     public function test_sale_cannot_exceed_available_stock(): void
     {
         [$branch] = $this->branches();
@@ -855,6 +956,17 @@ class FuelOperationsTest extends TestCase
             ->assertJsonPath('sales.cost_of_goods_sold', 600)
             ->assertJsonPath('sales.estimated_gross_profit', 200)
             ->assertJsonPath('sales.profit_is_partial', false)
+            ->assertJsonPath('sales_by_day.0.branch_id', $branch->id)
+            ->assertJsonPath('sales_by_day.0.date', now()->toDateString())
+            ->assertJsonPath('sales_by_day.0.revenue', 800)
+            ->assertJsonPath('sales_by_day.0.liters', 10)
+            ->assertJsonPath('sales_by_fuel.0.fuel_product_id', $product->id)
+            ->assertJsonPath('sales_by_fuel.0.transaction_count', 1)
+            ->assertJsonPath('sales_by_day_and_fuel.0.fuel_product_id', $product->id)
+            ->assertJsonPath('sales_by_day_and_fuel.0.date', now()->toDateString())
+            ->assertJsonPath('sales_by_day_and_fuel.0.liters', 10)
+            ->assertJsonPath('sales_by_day_and_fuel.0.revenue', 800)
+            ->assertJsonPath('sales_by_day_and_fuel.0.transaction_count', 1)
             ->assertJsonPath('closed_shifts.0.closing_summary.nozzles.'.$nozzle->id.'.variance_liters', 0.5);
         $this->actingAs($manager)->getJson(route('api.reports.summary', [
             'branch_id' => $sanFabian->id,
@@ -1106,13 +1218,14 @@ class FuelOperationsTest extends TestCase
             'status' => 'open',
         ]);
         $this->actingAs($manager)->patch(route('setup.nozzles.status', $nozzle), ['is_active' => false])
-            ->assertStatus(409);
+            ->assertSessionHasErrors('equipment');
         $shift->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => $manager->id]);
 
         $this->actingAs($otherManager)->patch(route('setup.tanks.status', $tank), ['is_active' => false])
             ->assertNotFound();
         $this->actingAs($manager)->patch(route('setup.tanks.status', $tank), ['is_active' => false])
-            ->assertStatus(422);
+            ->assertSessionHasErrors('tank');
+        $this->assertTrue($tank->fresh()->is_active);
         $this->actingAs($manager)->patch(route('setup.nozzles.status', $nozzle), ['is_active' => false])
             ->assertRedirect();
         $this->actingAs($manager)->patch(route('setup.pumps.status', $nozzle->pump), ['is_active' => false])

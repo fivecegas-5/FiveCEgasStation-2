@@ -92,7 +92,12 @@ class ReportController extends Controller
             });
 
         $salesByProduct = (clone $base)
-            ->select('fuel_product_id', DB::raw('SUM(liters) as liters'), DB::raw('SUM(total_amount) as sales_amount'))
+            ->select(
+                'fuel_product_id',
+                DB::raw('SUM(liters) as liters'),
+                DB::raw('SUM(total_amount) as sales_amount'),
+                DB::raw('COUNT(*) as transaction_count'),
+            )
             ->with('fuelProduct')
             ->groupBy('fuel_product_id')
             ->get()
@@ -101,6 +106,49 @@ class ReportController extends Controller
                 'fuel' => $sale->fuelProduct->name,
                 'liters' => (float) $sale->liters,
                 'sales_amount' => (float) $sale->sales_amount,
+                'transaction_count' => (int) $sale->transaction_count,
+            ]);
+
+        $salesByDayAndFuel = (clone $base)
+            ->join('fuel_products', 'fuel_sales.fuel_product_id', '=', 'fuel_products.id')
+            ->select(
+                'fuel_sales.fuel_product_id',
+                'fuel_products.name as fuel',
+                DB::raw('DATE(fuel_sales.sold_at) as date'),
+                DB::raw('SUM(fuel_sales.liters) as liters'),
+                DB::raw('SUM(fuel_sales.total_amount) as revenue'),
+                DB::raw('COUNT(*) as transaction_count'),
+            )
+            ->groupBy('fuel_sales.fuel_product_id', 'fuel_products.name', DB::raw('DATE(fuel_sales.sold_at)'))
+            ->orderBy(DB::raw('DATE(fuel_sales.sold_at)'))
+            ->get()
+            ->map(fn ($day): array => [
+                'fuel_product_id' => (int) $day->fuel_product_id,
+                'fuel' => $day->fuel,
+                'date' => $day->date,
+                'liters' => (float) $day->liters,
+                'revenue' => (float) $day->revenue,
+                'transaction_count' => (int) $day->transaction_count,
+            ]);
+
+        $salesByDay = (clone $base)
+            ->join('branches', 'fuel_sales.branch_id', '=', 'branches.id')
+            ->select(
+                'fuel_sales.branch_id',
+                'branches.name as branch',
+                DB::raw('DATE(fuel_sales.sold_at) as date'),
+                DB::raw('SUM(fuel_sales.total_amount) as revenue'),
+                DB::raw('SUM(fuel_sales.liters) as liters'),
+            )
+            ->groupBy('fuel_sales.branch_id', 'branches.name', DB::raw('DATE(fuel_sales.sold_at)'))
+            ->orderBy(DB::raw('DATE(fuel_sales.sold_at)'))
+            ->get()
+            ->map(fn ($day): array => [
+                'branch_id' => (int) $day->branch_id,
+                'branch' => $day->branch,
+                'date' => $day->date,
+                'revenue' => (float) $day->revenue,
+                'liters' => (float) $day->liters,
             ]);
 
         $shifts = Shift::query()
@@ -132,6 +180,8 @@ class ReportController extends Controller
                 'profit_is_partial' => $knownCostLiters + 0.0005 < $totalLiters,
             ],
             'sales_by_fuel' => $salesByProduct,
+            'sales_by_day_and_fuel' => $salesByDayAndFuel,
+            'sales_by_day' => $salesByDay,
             'inventory_balances' => $balances,
             'movement_totals' => $branchScope
                 ->select('movement_type', DB::raw('SUM(signed_quantity_liters) as net_liters'), DB::raw('COUNT(*) as movement_count'))

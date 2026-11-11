@@ -200,7 +200,7 @@ export function FuelSales({ root }) {
                                 <span><small>PRICE PER LITER</small><strong>{currency.format(selectedFuel.price_per_liter)}</strong></span>
                                 <span><small>SALE TOTAL</small><strong>{currency.format(total)}</strong></span>
                             </div>
-                            <button className="button button-primary fuel-sale-submit" type="submit" disabled={busy || !selectedNozzle}>
+                            <button className="primary-gradient fuel-sale-submit min-h-11 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={busy || !selectedNozzle}>
                                 {busy ? 'Recording sale…' : 'Record sale'}
                             </button>
                         </div>

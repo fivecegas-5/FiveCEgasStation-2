@@ -16,6 +16,7 @@
         data-reset-token="@yield('reset-token', '')"
         data-email="@yield('auth-email', old('email', ''))"
     ></div>
+    @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </body>
 </html>

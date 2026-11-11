@@ -91,6 +91,14 @@ class LowStockAlertTest extends TestCase
         $this->assertNotNull($notification->fresh()->read_at);
 
         $this->actingAs($sanFabianStaff)->getJson(route('api.notifications.index'))
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1);
+        $this->patchJson(route('api.notifications.read-all'))
+            ->assertOk()
+            ->assertJsonPath('marked_read', 1)
+            ->assertJsonPath('unread_count', 0);
+        $this->getJson(route('api.notifications.index'))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0);
     }
 }

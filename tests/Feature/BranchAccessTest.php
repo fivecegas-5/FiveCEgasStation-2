@@ -151,12 +151,16 @@ class BranchAccessTest extends TestCase
     {
         $owner = User::factory()->create(['role' => UserRole::Owner, 'branch_id' => null]);
         app(StationSetupSeeder::class)->run();
+        FuelTank::where('code', 'B1-T01')->update(['low_stock_threshold_liters' => 500]);
 
         $this->actingAs($owner)->getJson(route('api.workspace', ['per_page' => 1]))
             ->assertOk()
-            ->assertJsonPath('summary.stock_liters', 20000)
+            ->assertJsonPath('active_branch_id', Branch::where('code', 'manaoag')->value('id'))
+            ->assertJsonPath('summary.stock_liters', 10000)
             ->assertJsonPath('pagination.sales.per_page', 1)
             ->assertJsonPath('pagination.sales.total', 0)
+            ->assertJsonCount(6, 'inventory')
+            ->assertJsonFragment(['code' => 'B1-T01', 'low_stock_threshold_liters' => 500])
             ->assertJsonFragment([
                 'code' => 'B1-P2-T02',
                 'stock_liters' => 0,
@@ -166,6 +170,55 @@ class BranchAccessTest extends TestCase
                 'code' => 'B1-P1',
                 'label' => 'Tatsuno P#1',
             ]);
+    }
+
+    public function test_staff_can_filter_sales_history_to_sales_they_recorded(): void
+    {
+        $branch = Branch::create(['code' => 'manaoag', 'name' => 'Manaoag']);
+        $staff = User::factory()->create(['role' => UserRole::Staff, 'branch_id' => $branch->id]);
+        $ownSale = $this->createSale($branch, 'OWN-001');
+        $ownSale->update(['recorded_by' => $staff->id]);
+        $otherSale = $ownSale->replicate();
+        $otherSale->receipt_number = 'OTHER-001';
+        $otherSale->recorded_by = User::factory()->create(['role' => UserRole::Staff, 'branch_id' => $branch->id])->id;
+        $otherSale->save();
+
+        $this->actingAs($staff)
+            ->getJson(route('api.workspace', ['my_sales' => 1]))
+            ->assertOk()
+            ->assertJsonPath('pagination.sales.total', 1)
+            ->assertJsonPath('sales.0.receipt', 'OWN-001')
+            ->assertJsonPath('sales.0.recorder', $staff->name);
+    }
+
+    public function test_workspace_inventory_is_limited_to_the_selected_branch(): void
+    {
+        $owner = User::factory()->create(['role' => UserRole::Owner, 'branch_id' => null]);
+        app(StationSetupSeeder::class)->run();
+        $manaoag = Branch::where('code', 'manaoag')->firstOrFail();
+
+        $this->actingAs($owner)
+            ->withSession(['active_branch_id' => $manaoag->id])
+            ->getJson(route('api.workspace'))
+            ->assertOk()
+            ->assertJsonPath('active_branch_id', $manaoag->id)
+            ->assertJsonCount(6, 'inventory')
+            ->assertJsonFragment(['branch' => 'Manaoag', 'code' => 'B1-T01'])
+            ->assertJsonMissing(['branch' => 'San Fabian', 'code' => 'B2-T01']);
+    }
+
+    public function test_station_setup_only_includes_equipment_and_prices_for_the_selected_branch(): void
+    {
+        $owner = User::factory()->create(['role' => UserRole::Owner, 'branch_id' => null]);
+        app(StationSetupSeeder::class)->run();
+        $sanFabian = Branch::where('code', 'san-fabian')->firstOrFail();
+
+        $this->actingAs($owner)
+            ->withSession(['active_branch_id' => $sanFabian->id])
+            ->get(route('setup.index'))
+            ->assertOk()
+            ->assertSee('B2-T01')
+            ->assertDontSee('B1-T01');
     }
 
     public function test_staff_and_branch_owners_are_scoped_to_their_assigned_branch(): void

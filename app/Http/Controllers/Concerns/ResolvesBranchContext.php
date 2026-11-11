@@ -23,7 +23,11 @@ trait ResolvesBranchContext
 
         abort_unless($user->isOwner(), 403);
         $branchId = $data['branch_id'] ?? $request->session()->get('active_branch_id');
-        abort_unless($branchId !== null, 422, 'Select a branch before opening branch operations.');
+        $branchId ??= Branch::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->value('id');
+        abort_unless($branchId !== null, 422, 'No active branch is available for branch operations.');
         abort_unless($user->canAccessBranch((int) $branchId), 404);
         abort_unless(
             Branch::query()->whereKey($branchId)->where('is_active', true)->exists(),

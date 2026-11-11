@@ -28,8 +28,8 @@ function Select({ children, ...props }) {
     return <select className="min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800" {...props}>{children}</select>;
 }
 
-function Button({ children, ...props }) {
-    return <button className="min-h-10 rounded-xl bg-gradient-to-r from-rose-600 to-blue-800 px-4 py-2 text-sm font-bold text-white disabled:opacity-60" {...props}>{children}</button>;
+function Button({ children, className = '', ...props }) {
+    return <button className={`primary-gradient min-h-10 rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:opacity-60 ${className}`} {...props}>{children}</button>;
 }
 
 function Panel({ title, children, subtitle }) {
@@ -39,7 +39,10 @@ function Panel({ title, children, subtitle }) {
 export function FuelCredit({ root }) {
     const [customers, setCustomers] = useState([]);
     const [agreements, setAgreements] = useState([]);
+    const [pumps, setPumps] = useState([]);
     const [nozzles, setNozzles] = useState([]);
+    const [selectedPumpId, setSelectedPumpId] = useState('');
+    const [selectedNozzleId, setSelectedNozzleId] = useState('');
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [busy, setBusy] = useState(false);
@@ -52,9 +55,11 @@ export function FuelCredit({ root }) {
         ]);
         setCustomers(customerResponse.data?.data ?? []);
         setAgreements(agreementResponse.data?.data ?? []);
+        setPumps(workspace.pumps.filter((pump) => pump.is_active
+            && (!root.dataset.activeBranchId || String(pump.branch_id) === root.dataset.activeBranchId)));
         setNozzles(workspace.pumps.flatMap((pump) => pump.nozzles
             .filter((nozzle) => pump.is_active && nozzle.is_active)
-            .map((nozzle) => ({ ...nozzle, branch: pump.branch, pump: pump.label || pump.code }))));
+            .map((nozzle) => ({ ...nozzle, branch_id: pump.branch_id, branch: pump.branch, pump_id: pump.id, pump: pump.label || pump.code }))));
     }, [root]);
 
     useEffect(() => {
@@ -67,9 +72,11 @@ export function FuelCredit({ root }) {
             if (cancelled) return;
             setCustomers(customerResponse.data?.data ?? []);
             setAgreements(agreementResponse.data?.data ?? []);
+            setPumps(workspace.pumps.filter((pump) => pump.is_active
+                && (!root.dataset.activeBranchId || String(pump.branch_id) === root.dataset.activeBranchId)));
             setNozzles(workspace.pumps.flatMap((pump) => pump.nozzles
                 .filter((nozzle) => pump.is_active && nozzle.is_active)
-                .map((nozzle) => ({ ...nozzle, branch: pump.branch, pump: pump.label || pump.code }))));
+                .map((nozzle) => ({ ...nozzle, branch_id: pump.branch_id, branch: pump.branch, pump_id: pump.id, pump: pump.label || pump.code }))));
         }).catch((loadError) => {
             if (!cancelled) setError(loadError.message);
         });
@@ -79,6 +86,12 @@ export function FuelCredit({ root }) {
     const availableNozzles = useMemo(() => nozzles.filter((nozzle) => (
         !root.dataset.activeBranchId || String(nozzle.branch_id) === root.dataset.activeBranchId
     )), [nozzles, root]);
+    const availablePumps = useMemo(() => pumps.filter((pump) => (
+        !root.dataset.activeBranchId || String(pump.branch_id) === root.dataset.activeBranchId
+    )), [pumps, root]);
+    const pumpNozzles = useMemo(() => availableNozzles.filter((nozzle) => (
+        String(nozzle.pump_id) === selectedPumpId
+    )), [availableNozzles, selectedPumpId]);
 
     async function runAction(action, successMessage) {
         setBusy(true);
@@ -88,8 +101,10 @@ export function FuelCredit({ root }) {
             await action();
             await load();
             setNotice(successMessage);
+            return true;
         } catch (actionError) {
             setError(actionError.message);
+            return false;
         } finally {
             setBusy(false);
         }
@@ -98,7 +113,11 @@ export function FuelCredit({ root }) {
     async function saveCustomer(event, customerId = null) {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        const payload = { name: formData.get('name'), phone: formData.get('phone') || null };
+        const payload = {
+            name: formData.get('name'),
+            email: formData.get('email') || null,
+            phone: formData.get('phone') || null,
+        };
         await runAction(
             () => submitJson(
                 customerId ? `${root.dataset.creditCustomersUrl}/${customerId}` : root.dataset.creditCustomersUrl,
@@ -112,19 +131,24 @@ export function FuelCredit({ root }) {
     async function saveAgreement(event) {
         event.preventDefault();
         const body = new FormData(event.currentTarget);
-        await runAction(() => requestJson(root.dataset.creditAgreementsUrl, { method: 'POST', body }), 'Agreement and installment schedule recorded.');
-        event.currentTarget.reset();
+        if (await runAction(
+            () => requestJson(root.dataset.creditAgreementsUrl, { method: 'POST', body }),
+            'Agreement and installment schedule recorded.',
+        )) {
+            event.currentTarget.reset();
+            setSelectedPumpId('');
+            setSelectedNozzleId('');
+        }
     }
 
     async function recordPayment(event, agreementId) {
         event.preventDefault();
         const body = new FormData(event.currentTarget);
         const payload = Object.fromEntries(body.entries());
-        await runAction(
+        if (await runAction(
             () => submitJson(`${root.dataset.creditAgreementsUrl}/${agreementId}/payments`, 'POST', payload),
             'Payment recorded and allocated to the oldest unpaid installments.',
-        );
-        event.currentTarget.reset();
+        )) event.currentTarget.reset();
     }
 
     async function updateCustomerStatus(customer) {
@@ -152,6 +176,16 @@ export function FuelCredit({ root }) {
         );
     }
 
+    async function importCustomers(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const body = new FormData(form);
+        if (await runAction(
+            () => requestJson(root.dataset.creditCustomersImportUrl, { method: 'POST', body }),
+            'Customer records imported.',
+        )) form.reset();
+    }
+
     return (
         <>
             <div className="mb-6"><p className="text-[11px] font-extrabold uppercase tracking-widest text-rose-700">Customer accounts</p><h1 className="text-3xl font-extrabold text-slate-900">Fuel credit</h1><p className="mt-1 text-sm text-slate-500">Customers can be edited or archived. Issued agreements and payments retain their financial audit history.</p></div>
@@ -161,14 +195,35 @@ export function FuelCredit({ root }) {
                 <Panel title="Add customer" subtitle="Customer records belong to the selected branch">
                     <form className="grid gap-3 p-5" onSubmit={(event) => saveCustomer(event)}>
                         <Field label="Customer name"><Input name="name" required /></Field>
+                        <Field label="Email (optional)"><Input autoComplete="email" name="email" type="email" /></Field>
                         <Field label="Phone"><Input name="phone" /></Field>
                         <Button disabled={busy} type="submit">Add customer</Button>
                     </form>
                 </Panel>
-                <Panel title="Issue a credit agreement" subtitle="Creates a sale and deducts stock from the selected nozzle">
+                <Panel title="Issue a credit agreement" subtitle="Creates a sale and deducts stock from the selected pump nozzle">
                     <form className="grid gap-3 p-5" onSubmit={saveAgreement}>
                         <Field label="Customer"><Select name="fuel_credit_customer_id" required><option value="">Select customer</option>{customers.filter((customer) => customer.is_active).map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</Select></Field>
-                        <Field label="Pump nozzle"><Select name="fuel_nozzle_id" required><option value="">Select pump nozzle</option>{availableNozzles.map((nozzle) => <option key={nozzle.id} value={nozzle.id}>{nozzle.branch} · {nozzle.pump} · {nozzle.code} · {nozzle.fuel}</option>)}</Select></Field>
+                        <Field label="Pump">
+                            <Select onChange={(event) => {
+                                setSelectedPumpId(event.target.value);
+                                setSelectedNozzleId('');
+                            }} value={selectedPumpId}>
+                                <option value="">Select pump</option>
+                                {availablePumps.map((pump) => <option key={pump.id} value={pump.id}>{pump.label || pump.code} · {pump.code} · {pump.branch}</option>)}
+                            </Select>
+                        </Field>
+                        <Field label="Pump nozzle">
+                            <Select disabled={!selectedPumpId || !pumpNozzles.length} name="fuel_nozzle_id" onChange={(event) => setSelectedNozzleId(event.target.value)} required value={selectedNozzleId}>
+                                <option value="">{!selectedPumpId ? 'Select a pump first' : pumpNozzles.length ? 'Select pump nozzle' : 'No active nozzles on this pump'}</option>
+                                {pumpNozzles.map((nozzle) => <option key={nozzle.id} value={nozzle.id}>{nozzle.code} · {nozzle.fuel} · {nozzle.tank}</option>)}
+                            </Select>
+                        </Field>
+                        {!availablePumps.length && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="status">
+                            No active pumps are configured for {root.dataset.branchName || 'this branch'}. <a className="font-bold underline" href="/setup">Open Station Setup to add a pump and nozzle.</a>
+                        </div>}
+                        {availablePumps.length > 0 && !availableNozzles.length && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="status">
+                            No active pump nozzles are configured for {root.dataset.branchName || 'this branch'}. <a className="font-bold underline" href="/setup">Open Station Setup to connect a nozzle to a tank.</a>
+                        </div>}
                         <div className="grid gap-3 sm:grid-cols-2"><Field label="Liters"><Input min="0.001" name="liters" required step="0.001" type="number" /></Field><Field label="Monthly payment"><Input min="0.01" name="monthly_payment_amount" required step="0.01" type="number" /></Field></div>
                         <div className="grid gap-3 sm:grid-cols-2"><Field label="First due date"><Input min={new Date().toISOString().slice(0, 10)} name="first_due_date" required type="date" /></Field><Field label="Agreement reference"><Input name="agreement_reference" /></Field></div>
                         <Field label="Agreement document (optional)"><Input accept=".pdf,.jpg,.jpeg,.png" name="agreement" type="file" /></Field>
@@ -177,14 +232,24 @@ export function FuelCredit({ root }) {
                 </Panel>
             </div>
             <Panel title="Customers" subtitle={`${customers.length} records`}>
+                <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-end sm:justify-between">
+                    <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50" href={root.dataset.creditCustomersExportUrl}>Export customer CSV</a>
+                    <form className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]" onSubmit={importCustomers}>
+                        <Field label="Import customers (CSV)">
+                            <Input accept=".csv,text/csv" name="file" required type="file" />
+                        </Field>
+                        <Button disabled={busy} type="submit">Import customers</Button>
+                    </form>
+                </div>
                 <div className="grid gap-3 p-5">
                     {customers.map((customer) => <details className="rounded-xl border border-slate-200 p-4" key={customer.id}>
-                        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3"><span><strong className="text-slate-900">{customer.name}</strong><small className="ml-2 text-slate-500">{customer.phone || 'No phone'} · {customer.agreements_count} agreements</small></span><span className="text-xs font-bold">{customer.is_active ? 'Active' : 'Archived'}</span></summary>
+                        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3"><span><strong className="text-slate-900">{customer.name}</strong><small className="ml-2 text-slate-500">{customer.email || 'No email'} · {customer.phone || 'No phone'} · {customer.agreements_count} agreements</small></span><span className="text-xs font-bold">{customer.is_active ? 'Active' : 'Archived'}</span></summary>
                         <div className="mt-4 flex flex-wrap items-end gap-3">
                             <form className="grid flex-1 gap-3 sm:grid-cols-2" onSubmit={(event) => saveCustomer(event, customer.id)}>
                                 <Field label="Name"><Input defaultValue={customer.name} name="name" required /></Field>
+                                <Field label="Email"><Input autoComplete="email" defaultValue={customer.email || ''} name="email" type="email" /></Field>
                                 <Field label="Phone"><Input defaultValue={customer.phone || ''} name="phone" /></Field>
-                                <Button disabled={busy} type="submit">Save customer</Button>
+                                <Button className="min-h-9 justify-self-start px-4 py-1.5" disabled={busy} type="submit">Save customer</Button>
                             </form>
                             <Button disabled={busy} onClick={() => updateCustomerStatus(customer)} type="button">{customer.is_active ? 'Archive customer' : 'Reactivate customer'}</Button>
                         </div>

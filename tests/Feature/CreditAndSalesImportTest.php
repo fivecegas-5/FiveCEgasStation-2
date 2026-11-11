@@ -27,6 +27,49 @@ class CreditAndSalesImportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_credit_customers_support_email_and_branch_scoped_csv_import_export(): void
+    {
+        [$branch, $manager] = $this->station();
+        $this->actingAs($manager)->postJson(route('api.credit.customers.store'), [
+            'name' => 'Email Customer',
+            'email' => 'customer@example.test',
+            'phone' => '09170000000',
+        ])->assertCreated()
+            ->assertJsonPath('data.email', 'customer@example.test');
+
+        $this->postJson(route('api.credit.customers.import'), [
+            'file' => UploadedFile::fake()->createWithContent(
+                'customers.csv',
+                "Name,Email,Phone\nImported Customer,imported@example.test,09171111111\n",
+            ),
+        ])->assertCreated()
+            ->assertJsonPath('imported', 1);
+
+        $this->assertDatabaseHas('fuel_credit_customers', [
+            'branch_id' => $branch->id,
+            'name' => 'Imported Customer',
+            'email' => 'imported@example.test',
+            'phone' => '09171111111',
+        ]);
+
+        $export = $this->get(route('api.credit.customers.export'))->assertOk();
+        $this->assertStringContainsString('Name,Email,Phone', $export->streamedContent());
+        $this->assertStringContainsString('customer@example.test', $export->streamedContent());
+        $this->assertStringContainsString('imported@example.test', $export->streamedContent());
+
+        $this->postJson(route('api.credit.customers.import'), [
+            'file' => UploadedFile::fake()->createWithContent(
+                'duplicate.csv',
+                "Name,Email,Phone\nDuplicate Customer,imported@example.test,09172222222\n",
+            ),
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('row_2');
+        $this->assertDatabaseMissing('fuel_credit_customers', [
+            'branch_id' => $branch->id,
+            'name' => 'Duplicate Customer',
+        ]);
+    }
+
     public function test_manager_can_issue_fuel_credit_record_monthly_dues_and_allocate_partial_payments(): void
     {
         Storage::fake('local');
@@ -182,17 +225,16 @@ class CreditAndSalesImportTest extends TestCase
         ])->assertConflict();
     }
 
-    public function test_staff_use_direct_sales_instead_of_importing_csv_files(): void
+    public function test_staff_use_direct_sales_and_import_screen_is_unavailable(): void
     {
         [$branch, $manager, $tank, $nozzle] = $this->station();
         $staff = User::factory()->create(['role' => UserRole::Staff, 'branch_id' => $branch->id]);
-        $this->actingAs($staff)->get(route('sales.import.page'))
-            ->assertForbidden();
+        $this->actingAs($staff)->get('/sales/import')
+            ->assertMethodNotAllowed();
         $this->actingAs($staff)->get(route('sales.index'))
             ->assertOk()
             ->assertSee('data-page="sales"', false)
-            ->assertSee('data-role="staff"', false)
-            ->assertDontSee('data-page="sales-import"', false);
+            ->assertSee('data-role="staff"', false);
 
         $csv = $this->salesCsv([
             ['POS-001', now()->subMinutes(3)->format('Y-m-d H:i:s'), $nozzle->code, '5', 'R-001', 'cash'],

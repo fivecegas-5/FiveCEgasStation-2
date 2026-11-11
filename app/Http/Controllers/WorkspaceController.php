@@ -23,12 +23,21 @@ class WorkspaceController extends Controller
     {
         $user = $request->user();
         $branches = Branch::visibleTo($user)->where('is_active', true)->orderBy('name')->get();
-        $activeBranchId = $request->session()->get('active_branch_id', $user->branch_id);
+        $canSwitchBranch = $user->isOwner() && $user->branch_id === null;
+        $activeBranchId = $canSwitchBranch
+            ? $request->session()->get('active_branch_id')
+            : $user->branch_id;
+        $activeBranch = $branches->firstWhere('id', (int) $activeBranchId) ?? $branches->first();
+        $activeBranchId = $activeBranch?->id;
+        if ($canSwitchBranch && $activeBranchId !== null) {
+            $request->session()->put('active_branch_id', $activeBranchId);
+        }
         $branchIds = $branches
-            ->when($activeBranchId !== null, fn ($items) => $items->where('id', (int) $activeBranchId))
+            ->where('id', $activeBranchId)
             ->pluck('id');
         $pageSize = $request->validate([
             'per_page' => ['nullable', 'integer', 'between:1,100'],
+            'my_sales' => ['nullable', 'boolean'],
         ])['per_page'] ?? 25;
 
         $tanks = FuelTank::query()
@@ -45,6 +54,7 @@ class WorkspaceController extends Controller
 
         $sales = FuelSale::query()
             ->whereIn('branch_id', $branchIds)
+            ->when($request->boolean('my_sales'), fn ($query) => $query->where('recorded_by', $user->id))
             ->with(['branch', 'fuelProduct', 'nozzle.pump', 'recorder'])
             ->latest('sold_at')
             ->paginate($pageSize, ['*'], 'sales_page');
@@ -66,6 +76,7 @@ class WorkspaceController extends Controller
             ->orderByDesc('effective_from')
             ->get()
             ->unique(fn (FuelPrice $price): string => $price->branch_id.'-'.$price->fuel_product_id)
+            ->sortBy(fn (FuelPrice $price): string => $this->fuelSortKey($price->fuelProduct->name))
             ->values();
 
         $pumps = FuelPump::query()
@@ -99,6 +110,7 @@ class WorkspaceController extends Controller
             ->count();
 
         return response()->json([
+            'active_branch_id' => $activeBranchId,
             'branches' => $branches->map(fn (Branch $branch): array => [
                 'id' => $branch->id,
                 'code' => $branch->code,
@@ -121,6 +133,9 @@ class WorkspaceController extends Controller
                 'code' => $tank->code,
                 'stock_liters' => (float) ($stockByTank[$tank->id] ?? 0),
                 'capacity_liters' => (float) $tank->capacity_liters,
+                'low_stock_threshold_liters' => $tank->low_stock_threshold_liters === null
+                    ? null
+                    : (float) $tank->low_stock_threshold_liters,
                 'nozzle_count' => $tank->nozzles->count(),
                 'is_active' => $tank->is_active,
             ])->values(),
@@ -236,5 +251,15 @@ class WorkspaceController extends Controller
             'per_page' => $paginator->perPage(),
             'total' => $paginator->total(),
         ];
+    }
+
+    private function fuelSortKey(string $name): string
+    {
+        $normalized = strtolower($name);
+        $rank = str_contains($normalized, 'unleaded')
+            ? 0
+            : (str_contains($normalized, 'premium') ? 1 : (str_contains($normalized, 'diesel') ? 2 : 3));
+
+        return sprintf('%d-%s', $rank, $normalized);
     }
 }

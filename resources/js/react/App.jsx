@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { requestJson } from './api.js';
 import { FuelCredit } from './pages/FuelCredit.jsx';
-import { SalesImport } from './pages/SalesImport.jsx';
 import WorkspacePage from './pages/WorkspacePages.jsx';
 
 const products = [
@@ -56,7 +55,6 @@ const pageTitles = {
     adjustments: 'Stock adjustments',
     prices: 'Fuel prices',
     reports: 'Sales reports',
-    'sales-import': 'Import daily sales',
     credit: 'Fuel credit',
     setup: 'Station setup',
     users: 'Team management',
@@ -80,7 +78,7 @@ function Button({ children, className = '', type = 'button', ...props }) {
     return (
         <button
             type={type}
-            className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 via-rose-700 to-blue-800 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-900/15 transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+            className={`primary-gradient inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-950/15 transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-800 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
             {...props}
         >
             {children}
@@ -101,9 +99,9 @@ function PageHeading({ eyebrow, title, description, action }) {
     );
 }
 
-function Panel({ title, subtitle, action, children, className = '', id }) {
+function Panel({ title, subtitle, action, children, className = '', id, allowOverflow = false }) {
     return (
-        <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/[0.03] ${className}`} id={id}>
+        <section className={`min-w-0 ${allowOverflow ? 'overflow-visible' : 'overflow-hidden'} rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/[0.03] ${className}`} id={id}>
             {(title || action) && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
                     <div>
@@ -165,7 +163,7 @@ function DataTable({ headers, children }) {
 
 function Field({ label, children, className = '' }) {
     return (
-        <label className={`grid gap-1.5 text-sm font-semibold text-slate-700 ${className}`}>
+        <label className={`grid min-w-0 gap-1.5 text-sm font-semibold text-slate-700 ${className}`}>
             {label}
             {children}
         </label>
@@ -175,7 +173,7 @@ function Field({ label, children, className = '' }) {
 function Input({ className = '', ...props }) {
     return (
         <input
-            className={`min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:font-normal placeholder:text-slate-400 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 ${className}`}
+            className={`min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:font-normal placeholder:text-slate-400 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 ${className}`}
             {...props}
         />
     );
@@ -184,7 +182,7 @@ function Input({ className = '', ...props }) {
 function Select({ children, ...props }) {
     return (
         <select
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+            className="min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
             {...props}
         >
             {children}
@@ -318,7 +316,7 @@ function SalesPage({ onSubmit }) {
                             <legend className="mb-3 text-sm font-bold text-slate-800">Select fuel type</legend>
                             <div className="grid gap-3 sm:grid-cols-3">
                                 {products.map((product) => (
-                                    <button key={product.name} type="button" onClick={() => setFuel(product.name)} className={`rounded-xl border bg-gradient-to-br p-4 text-left transition ${fuel === product.name ? 'border-rose-600 from-rose-600 to-blue-800 text-white ring-2 ring-rose-100' : 'border-slate-200 from-white to-slate-50 text-slate-800 hover:border-rose-300'}`}>
+                                    <button key={product.name} type="button" onClick={() => setFuel(product.name)} className={`rounded-xl border p-4 text-left transition ${fuel === product.name ? 'primary-gradient border-rose-900 text-white ring-2 ring-rose-100' : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-rose-300'}`}>
                                         <span className={`mb-3 grid size-9 place-items-center rounded-xl text-lg ${product.color}`}>◉</span>
                                         <span className={`block font-bold ${fuel === product.name ? 'text-white' : 'text-slate-900'}`}>{product.name}</span>
                                         <span className={`mt-1 block text-xs ${fuel === product.name ? 'text-white/75' : 'text-slate-500'}`}>{product.price} / liter</span>
@@ -428,7 +426,7 @@ function ReportsPage() {
     return (
         <>
             <PageHeading eyebrow="Performance" title="Sales reports" description="Compare station performance and review fuel volume trends." action={<Button>Download report</Button>} />
-            <div className="mb-5 flex flex-wrap gap-2">{['Last 7 days', 'This month', 'All branches'].map((option, index) => <button className={`rounded-xl border bg-gradient-to-r px-4 py-2 text-sm font-bold ${index === 0 ? 'border-rose-700 from-rose-600 to-blue-800 text-white' : 'border-slate-200 from-white to-slate-50 text-slate-600'}`} key={option} type="button">{option}</button>)}</div>
+            <div className="mb-5 flex flex-wrap gap-2">{['Last 7 days', 'This month', 'All branches'].map((option, index) => <button className={`rounded-xl border px-4 py-2 text-sm font-bold ${index === 0 ? 'primary-gradient border-rose-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`} key={option} type="button">{option}</button>)}</div>
             <div className="mb-5 grid gap-4 sm:grid-cols-3"><MetricCard label="Gross sales" value="₱328,450" change="↑ 8.4% vs prior period" icon="₱" /><MetricCard label="Liters sold" value="5,842 L" change="Across all fuel types" icon="◉" tone="blue" /><MetricCard label="Transactions" value="1,284" change="Average ₱255.80 / sale" icon="▦" tone="emerald" /></div>
             <Panel title="Sales by day" subtitle="Revenue and volume trends for this week">
                 <div className="flex h-72 items-end justify-around gap-4 px-5 pb-5 pt-8">{salesByDay.map(([day, value]) => <div className="flex h-full flex-1 flex-col items-center justify-end gap-2" key={day}><div className="flex h-56 w-full items-end justify-center gap-1.5"><div className="w-1/3 rounded-t-md bg-gradient-to-t from-rose-700 to-rose-400" style={{ height: `${value}%` }} /><div className="w-1/3 rounded-t-md bg-gradient-to-t from-blue-800 to-blue-500" style={{ height: `${Math.min(96, value + 8)}%` }} /></div><span className="text-xs font-semibold text-slate-500">{day}</span></div>)}</div>
@@ -441,40 +439,61 @@ function ReportsPage() {
     );
 }
 
-function ImportPage({ onSubmit }) {
-    const [filename, setFilename] = useState('');
+function SetupEditModal({ title, onClose, children }) {
+    useEffect(() => {
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', closeOnEscape);
+        return () => window.removeEventListener('keydown', closeOnEscape);
+    }, [onClose]);
+
     return (
-        <>
-            <PageHeading eyebrow="Daily records" title="Import sales file" description="Upload a point-of-sale file, then review the preview before importing." action={<Button>Download CSV template</Button>} />
-            <div className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
-                <Panel title="Upload sales file" subtitle="CSV file · Up to 10 MB">
-                    <DemoForm className="p-5" onSubmit={onSubmit}>
-                        <label className="grid min-h-56 cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-rose-400 hover:bg-rose-50/40">
-                            <span><span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-rose-100 text-2xl font-bold text-rose-700">↑</span><strong className="block text-sm text-slate-800">{filename || 'Choose your daily sales CSV'}</strong><small className="mt-1 block text-xs text-slate-500">Select a file from your device</small></span>
-                            <input className="sr-only" type="file" accept=".csv,text/csv" onChange={(event) => setFilename(event.target.files?.[0]?.name ?? '')} />
-                        </label>
-                        <div className="rounded-xl bg-blue-50 p-4 text-xs leading-5 text-blue-800">Preview and validate the uploaded rows before confirming. This demo screen does not submit data yet.</div>
-                        <Button className="w-full" type="submit">Preview sales file <span aria-hidden="true">→</span></Button>
-                    </DemoForm>
-                </Panel>
-                <Panel title="Safe import process" subtitle="Review everything before posting">
-                    <div className="grid gap-4 p-5">{['Upload the daily sales CSV', 'Review row errors and totals', 'Confirm the import when ready'].map((line, index) => <div className="flex items-center gap-3" key={line}><span className="grid size-9 place-items-center rounded-xl bg-rose-50 text-sm font-extrabold text-rose-700">{`0${index + 1}`}</span><span className="text-sm font-semibold text-slate-600">{line}</span></div>)}</div>
-                </Panel>
-            </div>
-            <Panel title="Recent import batches" subtitle="Your uploaded files will appear here" className="mt-5">
-                <DataTable headers={['File', 'Uploaded', 'Rows', 'Valid', 'Status']}>
-                    {['POS_Sales_Oct30.csv', 'POS_Sales_Oct29.csv'].map((file, index) => <tr key={file}><td className="px-5 py-4 font-semibold text-slate-900">{file}</td><td className="px-5 py-4">{index ? 'Oct 29, 2026' : 'Oct 30, 2026'}</td><td className="px-5 py-4">{index ? '142' : '168'}</td><td className="px-5 py-4">{index ? '142' : '165'}</td><td className="px-5 py-4"><Badge tone={index ? 'green' : 'amber'}>{index ? 'Imported' : 'Preview'}</Badge></td></tr>)}
-                </DataTable>
-            </Panel>
-        </>
+        <div className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-slate-950/50 p-4" onMouseDown={(event) => {
+            if (event.target === event.currentTarget) onClose();
+        }}>
+            <section aria-labelledby="setup-edit-modal-title" aria-modal="true" className="my-auto max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl" role="dialog">
+                <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4">
+                    <h2 className="text-lg font-bold text-slate-900" id="setup-edit-modal-title">{title}</h2>
+                    <button aria-label="Close edit dialog" className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" onClick={onClose} type="button">
+                        <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                    </button>
+                </header>
+                <div className="p-5">{children}</div>
+            </section>
+        </div>
     );
 }
 
-function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
+function SetupActionIcon({ kind }) {
+    const paths = {
+        edit: <path d="m15 5 4 4M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" />,
+        save: <path d="m5 12 4 4L19 6" />,
+        archive: <><path d="M3 7h18M5 7l1 14h12l1-14" /><path d="M9 7V4h6v3m-5 4v6m4-6v6" /></>,
+        activate: <><path d="M12 5v14M5 12h14" /></>,
+    };
+
+    return <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" style={{ display: 'block', flex: 'none', height: 20, width: 20 }} viewBox="0 0 24 24" width="20">{paths[kind]}</svg>;
+}
+
+function SetupIconButton({ kind, label, className = '', ...props }) {
+    const colors = {
+        edit: 'border-violet-300 bg-white text-violet-700 hover:bg-violet-50',
+        save: 'border-emerald-700 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white hover:from-emerald-700 hover:to-emerald-900',
+        archive: 'border-rose-800 bg-gradient-to-r from-rose-600 to-rose-900 text-white hover:from-rose-700 hover:to-rose-950',
+        activate: 'border-emerald-700 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white hover:from-emerald-700 hover:to-emerald-900',
+    };
+
+    return <button aria-label={label} className={`grid size-10 shrink-0 place-items-center rounded-lg border transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 ${colors[kind]} ${className}`} title={label} type="button" {...props}><SetupActionIcon kind={kind} /></button>;
+}
+
+function SetupPage({ data, activeBranchId, status, error }) {
+    const [editingTankId, setEditingTankId] = useState(null);
     const formatLiters = (value) => `${new Intl.NumberFormat('en-PH', { maximumFractionDigits: 3 }).format(value)} L`;
-    const activeBranch = data.branches.find((branch) => String(branch.id) === String(activeBranchId));
-    const activeBranches = data.branches.filter((branch) => branch.isActive);
+    const selectedBranchId = data.activeBranchId || activeBranchId;
+    const activeBranch = data.branches.find((branch) => String(branch.id) === String(selectedBranchId));
     const activeProducts = data.products.filter((product) => product.isActive);
+    const editingTank = data.tanks.find((tank) => tank.id === editingTankId);
 
     return (
         <>
@@ -482,18 +501,10 @@ function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
             {status && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">{status}</div>}
             {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800" role="alert">{error}</div>}
             <div className="mb-5 grid gap-5 xl:grid-cols-[.8fr_1.2fr]">
-                <Panel title="Register a tank" subtitle="New tanks begin with the measured opening stock you enter.">
+                <Panel id="register-tank" title="Register a tank" subtitle="New tanks begin with the measured opening stock you enter.">
                     <ServerForm action="/setup/tanks" className="p-5">
-                        {canChooseBranch ? (
-                            <Field label="Branch">
-                                <Select defaultValue={activeBranchId || ''} name="branch_id" required>
-                                    <option value="">Choose a branch</option>
-                                    {activeBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-                                </Select>
-                            </Field>
-                        ) : (
-                            <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm font-semibold text-slate-700">{activeBranch?.name || data.branches[0]?.name || 'Assigned branch'}</p>
-                        )}
+                        <input name="branch_id" type="hidden" value={selectedBranchId || ''} />
+                        <Field label="Branch"><p className="flex min-h-10 items-center rounded-xl bg-slate-50 px-3.5 py-3 text-sm font-semibold text-slate-700">{activeBranch?.name || 'Select an active branch from the sidebar'}</p></Field>
                         <Field label="Tank code"><Input autoComplete="off" name="code" placeholder="Example: B1-P4-T01" required /></Field>
                         <Field label="Fuel type">
                             <Select name="fuel_product_id" required>
@@ -505,10 +516,13 @@ function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
                             <Field label="Measured opening stock (liters)"><Input defaultValue="0" min="0" name="opening_stock_liters" required step="0.001" type="number" /></Field>
                         </div>
                         <p className="text-xs leading-5 text-slate-500">The opening measurement is recorded in the permanent inventory ledger. You can enter 0 and reconcile later.</p>
-                        <Button type="submit">＋ Add tank</Button>
+                        <Button className="bg-emerald-700 hover:bg-emerald-800 focus-visible:outline-emerald-700" type="submit">
+                            <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+                            Add tank
+                        </Button>
                     </ServerForm>
                 </Panel>
-                <Panel title="Pump and nozzle map" subtitle="Physical pump labels are branch-specific; internal codes stay unique for the POS.">
+                <Panel allowOverflow title="Pump and nozzle map" subtitle="Physical pump labels are branch-specific; internal codes stay unique for the POS.">
                     <div className="grid gap-3 p-5 sm:grid-cols-2">
                         {data.pumps.map((pump) => (
                             <article className="rounded-xl border border-slate-200 p-4" key={pump.id}>
@@ -520,35 +534,35 @@ function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
                                     <Badge tone={pump.isActive ? 'green' : 'slate'}>{pump.isActive ? 'Active' : 'Archived'}</Badge>
                                 </div>
                                 <details className="mt-3">
-                                    <summary className="cursor-pointer text-xs font-bold text-rose-700">Edit pump</summary>
+                                    <summary aria-label={`Edit pump ${pump.label || pump.code}`} className="grid size-10 cursor-pointer list-none place-items-center rounded-lg border border-violet-300 bg-white text-violet-700 transition hover:bg-violet-50 [&::-webkit-details-marker]:hidden" title="Edit pump"><SetupActionIcon kind="edit" /></summary>
                                     <ServerForm action={`/setup/pumps/${pump.id}`} className="mt-3 grid gap-2" method="PUT">
                                         <Field label="Internal code"><Input defaultValue={pump.code} name="code" required /></Field>
                                         <Field label="Physical label"><Input defaultValue={pump.label || ''} name="label" required /></Field>
-                                        <Button className="min-h-8 rounded-lg px-3 py-1 text-xs" type="submit">Save pump</Button>
+                                        <SetupIconButton kind="save" label={`Save pump ${pump.label || pump.code}`} type="submit" />
                                     </ServerForm>
                                 </details>
                                 <ServerForm action={`/setup/pumps/${pump.id}/status`} className="mt-2" method="PATCH">
                                     <input name="is_active" type="hidden" value={pump.isActive ? '0' : '1'} />
-                                    <Button className="min-h-8 rounded-lg px-3 py-1 text-xs" type="submit">{pump.isActive ? 'Archive pump' : 'Reactivate pump'}</Button>
+                                    <SetupIconButton kind={pump.isActive ? 'archive' : 'activate'} label={pump.isActive ? `Archive pump ${pump.label || pump.code}` : `Reactivate pump ${pump.label || pump.code}`} type="submit" />
                                 </ServerForm>
                                 <div className="mt-4 grid gap-2">
                                     {pump.nozzles.map((nozzle) => (
                                         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2" key={nozzle.id}>
                                             <span className="text-xs font-semibold text-slate-700">{nozzle.productName} · {nozzle.code} · {nozzle.tankCode}</span>
                                             <div className="flex items-center gap-2">
-                                                <details>
-                                                    <summary className="cursor-pointer text-xs font-bold text-rose-700">Edit</summary>
-                                                    <ServerForm action={`/setup/nozzles/${nozzle.id}`} className="absolute z-10 mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl" method="PUT">
+                                                <details className="relative open:z-50">
+                                                    <summary aria-label={`Edit nozzle ${nozzle.code}`} className="grid size-10 cursor-pointer list-none place-items-center rounded-lg border border-violet-300 bg-white text-violet-700 transition hover:bg-violet-50 [&::-webkit-details-marker]:hidden" title="Edit nozzle"><SetupActionIcon kind="edit" /></summary>
+                                                    <ServerForm action={`/setup/nozzles/${nozzle.id}`} className="absolute right-0 z-[100] mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl" method="PUT">
                                                         <Field label="Nozzle code"><Input defaultValue={nozzle.code} name="code" required /></Field>
                                                         <Field label="Pump"><Select defaultValue={pump.id} name="fuel_pump_id" required>{data.pumps.filter((item) => item.branchId === pump.branchId && item.isActive).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.code}</option>)}</Select></Field>
                                                         <Field label="Tank"><Select defaultValue={nozzle.tankId} name="fuel_tank_id" required>{data.tanks.filter((tank) => tank.branchId === pump.branchId && tank.isActive).map((tank) => <option key={tank.id} value={tank.id}>{tank.code} · {tank.productName}</option>)}</Select></Field>
-                                                        <Button className="min-h-8 rounded-lg px-3 py-1 text-xs" type="submit">Save nozzle</Button>
+                                                        <SetupIconButton kind="save" label={`Save nozzle ${nozzle.code}`} type="submit" />
                                                     </ServerForm>
                                                 </details>
                                                 <Badge tone={nozzle.isActive ? 'green' : 'slate'}>{nozzle.isActive ? 'Active' : 'Off'}</Badge>
                                                 <ServerForm action={`/setup/nozzles/${nozzle.id}/status`} method="PATCH">
                                                     <input name="is_active" type="hidden" value={nozzle.isActive ? '0' : '1'} />
-                                                    <Button className="min-h-8 rounded-lg px-2.5 py-1 text-xs" type="submit">{nozzle.isActive ? 'Deactivate' : 'Activate'}</Button>
+                                                    <SetupIconButton kind={nozzle.isActive ? 'archive' : 'activate'} label={nozzle.isActive ? `Deactivate nozzle ${nozzle.code}` : `Activate nozzle ${nozzle.code}`} type="submit" />
                                                 </ServerForm>
                                             </div>
                                         </div>
@@ -559,8 +573,15 @@ function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
                     </div>
                     <details className="border-t border-slate-100 p-5">
                         <summary className="cursor-pointer text-sm font-bold text-rose-700">＋ Add pump or nozzle</summary>
+                        <ServerForm action="/setup/pumps" className="mt-4 grid gap-3 md:grid-cols-2">
+                            <input name="branch_id" type="hidden" value={selectedBranchId || ''} />
+                            <Field label="Internal pump code"><Input name="code" placeholder="B1-P4" required /></Field>
+                            <Field label="Physical pump label"><Input name="label" placeholder="Tatsuno P#4" required /></Field>
+                            <div className="flex items-end"><Button type="submit">Add pump</Button></div>
+                        </ServerForm>
+                        <p className="mt-4 border-t border-slate-100 pt-4 text-sm font-semibold text-slate-600">Connect a nozzle to an active tank</p>
                         <ServerForm action="/setup/nozzles" className="mt-4 grid gap-3 md:grid-cols-2">
-                            {canChooseBranch && <Field label="Branch"><Select name="branch_id" required><option value="">Choose branch</option>{activeBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</Select></Field>}
+                            <input name="branch_id" type="hidden" value={selectedBranchId || ''} />
                             <Field label="Internal pump code"><Input name="pump_code" placeholder="B1-P4" required /></Field>
                             <Field label="Physical pump label"><Input name="pump_label" placeholder="Tatsuno P#4" /></Field>
                             <Field label="Nozzle code"><Input name="nozzle_code" placeholder="B1-P4-N1" required /></Field>
@@ -571,35 +592,40 @@ function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
                 </Panel>
             </div>
             <Panel title="Configured tanks" subtitle="Edit measured stock with a reason; archived tanks and their movement history are retained.">
-                <div className="grid gap-4 p-5">
+                <DataTable headers={['Tank', 'Fuel · Branch', 'Current stock', 'Status', 'Actions']}>
                     {data.tanks.map((tank) => (
-                        <article className="rounded-xl border border-slate-200 p-4" key={tank.id}>
-                            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="font-bold text-slate-900">{tank.code}</h3>
-                                        <Badge tone={tank.isActive ? 'green' : 'slate'}>{tank.isActive ? 'Active' : 'Archived'}</Badge>
-                                    </div>
-                                    <p className="mt-1 text-sm text-slate-600">{tank.productName} · {tank.branchName}</p>
-                                    <p className="mt-1 text-xs text-slate-500">Current stock {formatLiters(tank.stock)} of {formatLiters(tank.capacity)}</p>
+                        <tr key={tank.id}>
+                            <td className="px-5 py-4">
+                                <p className="font-bold text-slate-900">{tank.code}</p>
+                                <p className="mt-1 text-xs text-slate-500">Capacity {formatLiters(tank.capacity)}</p>
+                            </td>
+                            <td className="px-5 py-4">{tank.productName} · {tank.branchName}</td>
+                            <td className="px-5 py-4">{formatLiters(tank.stock)}</td>
+                            <td className="px-5 py-4"><Badge tone={tank.isActive ? 'green' : 'slate'}>{tank.isActive ? 'Active' : 'Archived'}</Badge></td>
+                            <td className="px-5 py-4">
+                                <div className="flex items-center gap-2">
+                                    {tank.isActive && <SetupIconButton kind="edit" label={`Edit tank ${tank.code}`} onClick={() => setEditingTankId(tank.id)} />}
+                                    <ServerForm action={`/setup/tanks/${tank.id}/status`} method="PATCH">
+                                        <input name="is_active" type="hidden" value={tank.isActive ? '0' : '1'} />
+                                        <SetupIconButton kind={tank.isActive ? 'archive' : 'activate'} label={tank.isActive ? `Archive tank ${tank.code}` : `Reactivate tank ${tank.code}`} type="submit" />
+                                    </ServerForm>
                                 </div>
-                                <ServerForm action={`/setup/tanks/${tank.id}/status`} method="PATCH">
-                                    <input name="is_active" type="hidden" value={tank.isActive ? '0' : '1'} />
-                                    <Button className="min-h-9 rounded-lg px-3 py-1.5 text-xs" type="submit">{tank.isActive ? 'Archive tank' : 'Reactivate tank'}</Button>
-                                </ServerForm>
-                            </div>
-                            {tank.isActive && <ServerForm action={`/setup/tanks/${tank.id}`} className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_2fr_auto]" method="PUT">
-                                <Field label="Capacity (L)"><Input defaultValue={tank.capacity} min="0.001" name="capacity_liters" required step="0.001" type="number" /></Field>
-                                <Field label="Measured stock (L)"><Input defaultValue={tank.stock} min="0" name="current_stock_liters" required step="0.001" type="number" /></Field>
-                                <Field label="Low stock alert (L)"><Input defaultValue={tank.lowStockThreshold ?? ''} min="0" name="low_stock_threshold_liters" step="0.001" type="number" /></Field>
-                                <Field label="Reason for stock correction"><Input name="reason" placeholder="Required only when measured stock changes" /></Field>
-                                <div className="flex items-end"><Button type="submit">Save tank</Button></div>
-                            </ServerForm>}
-                        </article>
+                            </td>
+                        </tr>
                     ))}
-                </div>
+                    {!data.tanks.length && <tr><td className="px-5 py-8 text-center text-slate-500" colSpan="5">No tanks configured for this branch.</td></tr>}
+                </DataTable>
             </Panel>
-            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+            {editingTank && editingTank.isActive && <SetupEditModal onClose={() => setEditingTankId(null)} title={`Edit tank · ${editingTank.code}`}>
+                <ServerForm action={`/setup/tanks/${editingTank.id}`} className="grid gap-4 sm:grid-cols-2" method="PUT">
+                    <Field label="Capacity (L)"><Input defaultValue={editingTank.capacity} min="0.001" name="capacity_liters" required step="0.001" type="number" /></Field>
+                    <Field label="Measured stock (L)"><Input defaultValue={editingTank.stock} min="0" name="current_stock_liters" required step="0.001" type="number" /></Field>
+                    <Field label="Low stock alert (L)"><Input defaultValue={editingTank.lowStockThreshold ?? ''} min="0" name="low_stock_threshold_liters" step="0.001" type="number" /></Field>
+                    <Field label="Reason for stock correction"><Input name="reason" placeholder="Required only when measured stock changes" /></Field>
+                    <div className="flex items-end sm:col-span-2"><Button type="submit">Save tank</Button></div>
+                </ServerForm>
+            </SetupEditModal>}
+            <div className="mt-5">
                 <Panel title="Fuel products" subtitle="Products with historical use are archived, not removed.">
                     <ServerForm action="/setup/products" className="grid gap-3 p-5 sm:grid-cols-[1fr_auto]">
                         <Field label="New fuel product"><Input name="name" placeholder="Fuel product name" required /></Field>
@@ -607,43 +633,13 @@ function SetupPage({ data, canChooseBranch, activeBranchId, status, error }) {
                     </ServerForm>
                     <div className="grid gap-3 border-t border-slate-100 p-5">
                         {data.products.map((product) => <div className="flex flex-wrap items-center justify-between gap-3" key={product.id}>
-                            <ServerForm action={`/setup/products/${product.id}`} className="flex flex-1 items-end gap-2" method="PUT">
+                            <ServerForm action={`/setup/products/${product.id}`} className="flex min-w-0 flex-1 items-end gap-2" method="PUT">
                                 <Field label={product.isActive ? product.name : `${product.name} · archived`}><Input defaultValue={product.name} name="name" required /></Field>
-                                <Button className="min-h-9 rounded-lg px-3 py-2 text-xs" type="submit">Save</Button>
+                                <SetupIconButton className="mb-0.5" kind="save" label={`Save ${product.name}`} type="submit" />
                             </ServerForm>
                             <ServerForm action={`/setup/products/${product.id}/status`} method="PATCH">
                                 <input name="is_active" type="hidden" value={product.isActive ? '0' : '1'} />
-                                <Button className="min-h-9 rounded-lg px-3 py-2 text-xs" type="submit">{product.isActive ? 'Archive' : 'Activate'}</Button>
-                            </ServerForm>
-                        </div>)}
-                    </div>
-                </Panel>
-                <Panel title="Current fuel prices" subtitle="Price history is retained when a new price is added.">
-                    <div className="grid gap-3 p-5">
-                        {data.prices.map((price) => <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3" key={price.id}>
-                            <span className="text-sm font-semibold text-slate-700">{price.branchName} · {price.productName}</span>
-                            <strong className="text-sm text-slate-900">₱{Number(price.amount).toFixed(2)}/L</strong>
-                        </div>)}
-                    </div>
-                </Panel>
-                <Panel title="Branch information" subtitle="Branch codes are fixed once created to protect operational history.">
-                    {canChooseBranch && <ServerForm action="/setup/branches" className="grid gap-3 p-5">
-                        <Field label="Branch code"><Input name="code" placeholder="pangasinan-east" required /></Field>
-                        <Field label="Branch name"><Input name="name" required /></Field>
-                        <Field label="Address"><Input name="address" /></Field>
-                        <Button type="submit">Add branch</Button>
-                    </ServerForm>}
-                    <div className="grid gap-3 border-t border-slate-100 p-5">
-                        {data.branches.map((branch) => <div className="rounded-xl border border-slate-200 p-3" key={branch.id}>
-                            <ServerForm action={`/setup/branches/${branch.id}`} className="grid gap-2" method="PUT">
-                                <p className="text-xs font-bold text-slate-500">{branch.code} · {branch.isActive ? 'Active' : 'Archived'}</p>
-                                <Field label="Branch name"><Input defaultValue={branch.name} name="name" required /></Field>
-                                <Field label="Address"><Input defaultValue={branch.address || ''} name="address" /></Field>
-                                <Button className="min-h-9 rounded-lg px-3 py-2 text-xs" type="submit">Save branch</Button>
-                            </ServerForm>
-                            <ServerForm action={`/setup/branches/${branch.id}/status`} className="mt-2" method="PATCH">
-                                <input name="is_active" type="hidden" value={branch.isActive ? '0' : '1'} />
-                                <Button className="min-h-9 rounded-lg px-3 py-2 text-xs" type="submit">{branch.isActive ? 'Archive branch' : 'Reactivate branch'}</Button>
+                                <SetupIconButton kind={product.isActive ? 'archive' : 'activate'} label={product.isActive ? `Archive ${product.name}` : `Reactivate ${product.name}`} type="submit" />
                             </ServerForm>
                         </div>)}
                     </div>
@@ -679,6 +675,7 @@ function UsersPage({ onSubmit }) {
 }
 
 function AuthPage({ root, page }) {
+    const [passwordVisible, setPasswordVisible] = useState(false);
     const isForgot = page === 'forgot-password';
     const isReset = page === 'reset-password';
     const title = isReset ? 'Choose a new password' : isForgot ? 'Forgot password?' : 'Welcome back';
@@ -708,7 +705,35 @@ function AuthPage({ root, page }) {
                         <input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]')?.content ?? ''} />
                         {isReset && <input type="hidden" name="token" value={root.dataset.resetToken ?? ''} />}
                         <Field label="Email address"><Input autoComplete="email" autoFocus defaultValue={root.dataset.email ?? ''} name="email" placeholder="you@example.com" required type="email" /></Field>
-                        {!isForgot && <Field label={isReset ? 'New password' : 'Password'}><Input autoComplete={isReset ? 'new-password' : 'current-password'} minLength={isReset ? 10 : undefined} name="password" placeholder={isReset ? 'At least 10 characters' : 'Enter your password'} required type="password" /></Field>}
+                        {!isForgot && <div className="grid gap-1.5 text-sm font-semibold text-slate-700">
+                            <label htmlFor="auth-password">{isReset ? 'New password' : 'Password'}</label>
+                            <div className="relative">
+                                <Input autoComplete={isReset ? 'new-password' : 'current-password'} className="pr-20" id="auth-password" minLength={isReset ? 10 : undefined} name="password" placeholder={isReset ? 'At least 10 characters' : 'Enter your password'} required type={passwordVisible ? 'text' : 'password'} />
+                                <button
+                                    aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                                    aria-pressed={passwordVisible}
+                                    className="absolute inset-y-0 right-3 my-auto grid size-8 place-items-center rounded text-slate-500 hover:text-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
+                                    onClick={() => setPasswordVisible((visible) => !visible)}
+                                    type="button"
+                                >
+                                    <svg aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
+                                        {passwordVisible ? (
+                                            <>
+                                                <path d="M3 3l18 18" />
+                                                <path d="M10.6 10.6a2 2 0 002.8 2.8" />
+                                                <path d="M9.9 5.2A11 11 0 0112 5c5 0 8.3 4.5 9 7-.3 1.1-1.1 2.4-2.3 3.6" />
+                                                <path d="M6.2 6.2C3.9 7.6 2.4 10 2 12c.7 2.5 4 7 10 7a10 10 0 004.1-.9" />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </>
+                                        )}
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>}
                         {isReset && <Field label="Confirm new password"><Input autoComplete="new-password" minLength={10} name="password_confirmation" placeholder="Re-enter your new password" required type="password" /></Field>}
                         {!isForgot && !isReset && <div className="flex items-center justify-between gap-3 text-sm"><label className="flex items-center gap-2 text-slate-600"><input className="size-4 rounded border-slate-300 accent-rose-700" name="remember" type="checkbox" value="1" />Remember me</label><a className="font-bold text-rose-700 hover:text-rose-900" href="/forgot-password">Forgot password?</a></div>}
                         <Button className="mt-1 min-h-12 w-full" type="submit">{submitLabel} <span aria-hidden="true">→</span></Button>
@@ -726,6 +751,13 @@ function App({ root }) {
     const [notice, setNotice] = useState('');
     const [workspace, setWorkspace] = useState(null);
     const [workspaceError, setWorkspaceError] = useState('');
+    const [notifications, setNotifications] = useState([]);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notificationsLoading, setNotificationsLoading] = useState(false);
+    const [notificationError, setNotificationError] = useState('');
+    const [notificationActionBusy, setNotificationActionBusy] = useState(false);
+    const notificationsRef = useRef(null);
     const page = root.dataset.page || 'dashboard';
     const authenticated = root.dataset.authenticated === 'true';
     const isOwner = root.dataset.isOwner === 'true';
@@ -734,9 +766,92 @@ function App({ root }) {
     const userName = root.dataset.userName || 'Station Manager';
     const setupData = page === 'setup' ? JSON.parse(root.dataset.setupData || '{"branches":[],"products":[],"tanks":[],"pumps":[]}') : null;
 
+    const loadNotifications = useCallback(async () => {
+        setNotificationsLoading(true);
+        setNotificationError('');
+        try {
+            const response = await requestJson(`${root.dataset.notificationsUrl}?per_page=25`);
+            setNotifications(response.data?.data ?? []);
+            setUnreadNotifications(response.unread_count ?? 0);
+        } catch (error) {
+            setNotificationError(error.message);
+        } finally {
+            setNotificationsLoading(false);
+        }
+    }, [root.dataset.notificationsUrl]);
+
+    useEffect(() => {
+        if (!authenticated) return undefined;
+        loadNotifications();
+        const interval = window.setInterval(loadNotifications, 60000);
+        window.addEventListener('focus', loadNotifications);
+        return () => {
+            window.clearInterval(interval);
+            window.removeEventListener('focus', loadNotifications);
+        };
+    }, [authenticated, loadNotifications]);
+
+    useEffect(() => {
+        if (!notificationsOpen) return undefined;
+        function closeOnOutsideClick(event) {
+            if (!notificationsRef.current?.contains(event.target)) setNotificationsOpen(false);
+        }
+        function closeOnEscape(event) {
+            if (event.key === 'Escape') setNotificationsOpen(false);
+        }
+        document.addEventListener('pointerdown', closeOnOutsideClick);
+        document.addEventListener('keydown', closeOnEscape);
+        return () => {
+            document.removeEventListener('pointerdown', closeOnOutsideClick);
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [notificationsOpen]);
+
+    async function markNotificationRead(notification) {
+        if (notification.read_at) return;
+        setNotificationActionBusy(true);
+        setNotificationError('');
+        try {
+            const url = root.dataset.notificationReadUrlTemplate
+                .replace('__NOTIFICATION_ID__', encodeURIComponent(notification.id));
+            const response = await requestJson(url, { method: 'PATCH' });
+            setNotifications((current) => current.map((item) => item.id === notification.id
+                ? { ...item, read_at: response.data.read_at }
+                : item));
+            setUnreadNotifications((count) => Math.max(0, count - 1));
+        } catch (error) {
+            setNotificationError(error.message);
+        } finally {
+            setNotificationActionBusy(false);
+        }
+    }
+
+    async function markAllNotificationsRead() {
+        if (!unreadNotifications) return;
+        setNotificationActionBusy(true);
+        setNotificationError('');
+        try {
+            await requestJson(root.dataset.notificationsReadAllUrl, { method: 'PATCH' });
+            const readAt = new Date().toISOString();
+            setNotifications((current) => current.map((item) => ({ ...item, read_at: item.read_at || readAt })));
+            setUnreadNotifications(0);
+        } catch (error) {
+            setNotificationError(error.message);
+        } finally {
+            setNotificationActionBusy(false);
+        }
+    }
+
     useEffect(() => {
         let cancelled = false;
-        requestJson(root.dataset.workspaceUrl)
+        const workspaceUrl = new URL(root.dataset.workspaceUrl, window.location.origin);
+        const pageUrl = new URL(window.location.href);
+        ['sales_page', 'my_sales'].forEach((parameter) => {
+            if (pageUrl.searchParams.has(parameter)) {
+                workspaceUrl.searchParams.set(parameter, pageUrl.searchParams.get(parameter));
+            }
+        });
+        requestJson(workspaceUrl)
             .then((data) => {
                 if (!cancelled) setWorkspace(data);
             })
@@ -765,26 +880,24 @@ function App({ root }) {
         adjustments: workspace && <WorkspacePage data={workspace} page="adjustments" root={root} userName={userName} />,
         prices: workspace && <WorkspacePage data={workspace} page="prices" root={root} userName={userName} />,
         reports: workspace && <WorkspacePage data={workspace} page="reports" root={root} userName={userName} />,
-        'sales-import': <SalesImport root={root} />,
         credit: <FuelCredit root={root} />,
         setup: <SetupPage
             activeBranchId={root.dataset.activeBranchId}
-            canChooseBranch={canSwitchBranch}
             data={setupData}
             error={root.dataset.error}
             status={root.dataset.status}
         />,
         users: workspace && <WorkspacePage data={workspace} page="users" root={root} userName={userName} />,
     };
-    const visibleNavigation = navigation.filter((item) => isOwner || ['dashboard', 'inventory', 'sales', 'transactions'].includes(item.page));
+    const visibleNavigation = navigation.filter((item) => isOwner || ['sales', 'transactions'].includes(item.page));
 
     return (
         <div className="min-h-screen bg-[#f5f6fa] text-slate-800">
             {mobileNavOpen && <button aria-label="Close navigation" className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden" onClick={() => setMobileNavOpen(false)} type="button" />}
-            <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-gradient-to-b from-[#121e3a] via-[#302039] to-[#79253f] text-white shadow-xl transition-transform lg:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <a className="flex h-[84px] items-center gap-3 border-b border-white/10 px-6" href="/">
-                    <img className="size-11 rounded-xl bg-white object-contain p-1" src="/images/fiveCElogo.png" alt="Five CE Gas logo" />
-                    <span><strong className="block text-sm font-black tracking-[0.17em]">FIVE C E GAS</strong><small className="mt-1 block text-[9px] font-bold tracking-[0.2em] text-white/55">FUEL OPERATIONS</small></span>
+            <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col overflow-y-auto bg-[linear-gradient(180deg,#111d2e_0%,#192333_34%,#402b3c_66%,#9b343e_100%)] text-white shadow-xl transition-transform lg:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <a className="flex h-[84px] items-center gap-2.5 border-b border-white/10 px-5" href="/">
+                    <img className="size-11 shrink-0 object-contain" src="/images/fiveCElogo.png" alt="" />
+                    <strong className="text-sm font-black tracking-[0.08em]">FIVE C E GAS</strong>
                 </a>
                 {canSwitchBranch ? (
                     <form action="/branch-context" className="mx-4 mt-5" method="POST">
@@ -798,7 +911,6 @@ function App({ root }) {
                             onChange={(event) => event.currentTarget.form?.requestSubmit()}
                             required
                         >
-                            <option className="text-slate-900" value="">Choose a branch</option>
                             {branchOptions.map((branch) => <option className="text-slate-900" key={branch.id} value={branch.id}>{branch.name}</option>)}
                         </Select>
                     </form>
@@ -808,26 +920,98 @@ function App({ root }) {
                 <nav aria-label="Main navigation" className="mt-6 flex-1 space-y-1 px-3">
                     <p className="px-3 pb-2 text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/40">Workspace</p>
                     {visibleNavigation.map((item) => {
-                        const active = page === item.page || (page === 'sales-import' && item.page === 'sales');
-                        return <a className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${active ? 'bg-white/15 text-white shadow-inner' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'}`} href={item.href} key={item.label} onClick={() => setMobileNavOpen(false)}><span className="grid size-6 place-items-center text-base">{item.icon}</span><span>{item.label}</span>{active && <span className="ml-auto size-1.5 rounded-full bg-rose-300" />}</a>;
+                        const active = page === item.page;
+                        return <a className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${active ? 'primary-gradient text-white shadow-md shadow-black/15' : 'text-white/75 hover:bg-white/[0.09] hover:text-white'}`} href={item.href} key={item.label} onClick={() => setMobileNavOpen(false)}><span className="grid size-6 place-items-center text-base">{item.page === 'sales' ? <svg aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M5 3h14v18l-2-1.5L15 21l-3-1.5L9 21l-2-1.5L5 21V3Z" /><path d="M9 8h6M9 12h2" /><path d="M14.5 15.5c0-.8-.6-1.2-1.5-1.2s-1.5.4-1.5 1.2.6 1.2 1.5 1.2 1.5.4 1.5 1.2-.6 1.2-1.5 1.2-1.5-.4-1.5-1.2M13 13.5v7" /></svg> : item.icon}</span><span>{item.label}</span>{active && <span className="ml-auto size-1.5 rounded-full bg-white/80" />}</a>;
                     })}
-                    {isOwner && <a className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${page === 'sales-import' ? 'bg-white/15 text-white' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'}`} href="/sales/import" onClick={() => setMobileNavOpen(false)}><span className="grid size-6 place-items-center">⇧</span>Import sales</a>}
                 </nav>
-                <div className="border-t border-white/10 p-4">
-                    <div className="flex items-center gap-3 rounded-xl bg-white/[0.08] p-3"><span className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-rose-400 to-blue-500 text-sm font-extrabold">{userName.slice(0, 1).toUpperCase()}</span><span className="min-w-0 flex-1"><strong className="block truncate text-xs">{userName}</strong><small className="text-[10px] capitalize text-white/55">{root.dataset.role || (isOwner ? 'Owner' : 'Staff')}</small></span><form action="/logout" method="POST"><input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]')?.content ?? ''} /><Button aria-label="Log out" className="size-9 min-h-9 rounded-lg px-0 py-1 text-xs" type="submit">↗</Button></form></div>
+                <div className="border-t border-white/15 p-4">
+                    <div className="flex items-center gap-3 rounded-lg bg-black/10 p-3"><span className="grid size-9 place-items-center rounded-full bg-white/15 text-sm font-extrabold">{userName.slice(0, 1).toUpperCase()}</span><span className="min-w-0 flex-1"><strong className="block truncate text-xs">{userName}</strong><small className="text-[10px] capitalize text-white/65">{root.dataset.role || (isOwner ? 'Owner' : 'Staff')}</small></span><form action="/logout" method="POST"><input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]')?.content ?? ''} /><Button aria-label="Log out" className="size-9 min-h-9 rounded-lg px-0 py-1 text-xs" type="submit">↗</Button></form></div>
                 </div>
             </aside>
-            <div className="min-h-screen lg:pl-[260px]">
+            <div className="min-h-screen min-w-0 lg:pl-[260px]">
                 <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-md sm:px-7">
                     <div className="flex items-center gap-3"><Button aria-label="Open navigation" className="grid size-10 min-h-10 place-items-center rounded-xl px-0 text-lg lg:hidden" onClick={() => setMobileNavOpen(true)}>☰</Button><div className="text-xs text-slate-400 sm:text-sm"><span>Five CE Gas</span><span className="mx-2">/</span><strong className="text-slate-800">{pageTitles[page] || 'Overview'}</strong></div></div>
-                    <div className="flex items-center gap-3 sm:gap-5"><span className="hidden text-xs font-semibold text-slate-500 sm:block">Sat, Oct 31, 2026</span><Button aria-label="Notifications" className="relative grid size-10 min-h-10 place-items-center rounded-xl px-0">♧<span className="absolute right-2 top-2 size-2 rounded-full bg-rose-300 ring-2 ring-white" /></Button><span className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-blue-700 to-rose-600 text-xs font-extrabold text-white">{userName.slice(0, 1).toUpperCase()}</span></div>
+                    <div className="flex items-center gap-3 sm:gap-5">
+                        <div className="relative" ref={notificationsRef}>
+                            <Button
+                                aria-controls="notifications-panel"
+                                aria-expanded={notificationsOpen}
+                                aria-label={unreadNotifications ? `Notifications, ${unreadNotifications} unread` : 'Notifications'}
+                                className="relative grid size-10 min-h-10 place-items-center rounded-xl px-0"
+                                onClick={() => {
+                                    const nextOpen = !notificationsOpen;
+                                    setNotificationsOpen(nextOpen);
+                                    if (nextOpen) loadNotifications();
+                                }}
+                                type="button"
+                            >
+                                <svg aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
+                                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                                    <path d="M10 21h4" />
+                                </svg>
+                                {unreadNotifications > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-extrabold leading-none text-white ring-2 ring-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
+                            </Button>
+                            {notificationsOpen && <section
+                                aria-label="Notifications"
+                                className="absolute right-0 z-[60] mt-3 w-[min(90vw,24rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-2xl"
+                                id="notifications-panel"
+                            >
+                                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                                    <div><h2 className="text-sm font-bold text-slate-900">Notifications</h2><p className="mt-0.5 text-xs text-slate-500">{unreadNotifications} unread</p></div>
+                                    <div className="flex items-center gap-3">
+                                        {unreadNotifications > 0 && <button className="text-xs font-bold text-rose-700 hover:text-rose-900 disabled:opacity-50" disabled={notificationActionBusy} onClick={markAllNotificationsRead} type="button">Mark all read</button>}
+                                        <button aria-label="Close notifications" className="grid size-7 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setNotificationsOpen(false)} type="button">×</button>
+                                    </div>
+                                </div>
+                                {notificationError && <p className="border-b border-rose-100 bg-rose-50 px-4 py-2 text-xs text-rose-800" role="alert">{notificationError}</p>}
+                                {notificationsLoading && !notifications.length
+                                    ? <p className="px-4 py-8 text-center text-sm text-slate-500" role="status">Loading notifications…</p>
+                                    : notifications.length
+                                        ? <ul className="max-h-[min(65vh,28rem)] divide-y divide-slate-100 overflow-y-auto">
+                                            {notifications.map((item) => {
+                                                const details = item.data ?? {};
+                                                const lowStock = details.event === 'low_stock_threshold_reached';
+                                                const title = lowStock ? 'Low fuel stock' : String(details.event || item.type || 'Station notification').replaceAll('_', ' ');
+                                                const description = lowStock
+                                                    ? `${details.branch} · ${details.tank_code} (${details.fuel})`
+                                                    : (details.message || 'There is a new station update.');
+                                                const detailLine = lowStock
+                                                    ? `${Number(details.stock_liters ?? 0).toLocaleString('en-PH')} L remaining · threshold ${Number(details.threshold_liters ?? 0).toLocaleString('en-PH')} L`
+                                                    : null;
+                                                const timestamp = item.created_at
+                                                    ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.created_at))
+                                                    : '';
+                                                return <li className={`px-4 py-3 ${item.read_at ? 'bg-white' : 'bg-rose-50/50'}`} key={item.id}>
+                                                    <div className="flex items-start gap-3">
+                                                        <span aria-hidden="true" className={`mt-1 size-2 shrink-0 rounded-full ${item.read_at ? 'bg-slate-300' : 'bg-rose-600'}`} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-bold capitalize text-slate-900">{title}</p>
+                                                            <p className="mt-1 text-xs text-slate-600">{description}</p>
+                                                            {detailLine && <p className="mt-1 text-xs font-semibold text-rose-700">{detailLine}</p>}
+                                                            <div className="mt-2 flex items-center justify-between gap-3">
+                                                                <a className="text-xs font-bold text-blue-700 hover:underline" href="/inventory" onClick={() => setNotificationsOpen(false)}>View inventory</a>
+                                                                <span className="text-[10px] text-slate-400">{timestamp}</span>
+                                                            </div>
+                                                            {!item.read_at && <button className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-800 disabled:opacity-50" disabled={notificationActionBusy} onClick={() => markNotificationRead(item)} type="button">Mark as read</button>}
+                                                        </div>
+                                                    </div>
+                                                </li>;
+                                            })}
+                                        </ul>
+                                        : <p className="px-4 py-8 text-center text-sm text-slate-500">{notificationError ? 'Notifications could not be loaded.' : 'You’re all caught up.'}</p>}
+                                {!notificationError && notifications.length > 0 && <p className="border-t border-slate-100 px-4 py-2 text-center text-[10px] text-slate-400">Showing the latest {notifications.length} notifications · refreshes automatically</p>}
+                            </section>}
+                        </div>
+                        <span className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-blue-700 to-rose-600 text-xs font-extrabold text-white">{userName.slice(0, 1).toUpperCase()}</span>
+                    </div>
                 </header>
-                <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-7 sm:py-8">
+                <main className="workspace-content mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-7 sm:py-8">
                     {notice && <div className="mb-5 flex items-start justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" role="status">{notice}<Button aria-label="Dismiss message" className="min-h-7 rounded-lg px-2 py-1 text-xs" onClick={() => setNotice('')}>×</Button></div>}
+                    {page !== 'setup' && root.dataset.status && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">{root.dataset.status}</div>}
+                    {page !== 'setup' && root.dataset.error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800" role="alert">{root.dataset.error}</div>}
                     {workspaceError && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800" role="alert">Could not load station data: {workspaceError}</div>}
-                    {!workspace && !workspaceError && page !== 'sales-import' && <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">Loading live station data…</p>}
+                    {!workspace && !workspaceError && <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">Loading live station data…</p>}
                     {pageContent[page] || (workspace && <WorkspacePage data={workspace} page="dashboard" root={root} userName={userName} />)}
-                    <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-4 text-[11px] text-slate-400"><span>© {new Date().getFullYear()} Five CE Gas Station</span><span>Fuel operations · live database</span></footer>
                 </main>
             </div>
         </div>

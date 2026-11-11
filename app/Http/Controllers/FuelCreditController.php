@@ -20,11 +20,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class FuelCreditController extends Controller
@@ -43,7 +45,10 @@ class FuelCreditController extends Controller
             ->where('branch_id', $branchId)
             ->when(
                 filled($data['search'] ?? null),
-                fn (Builder $query) => $query->where('name', 'like', '%'.$data['search'].'%'),
+                fn (Builder $query) => $query->where(fn (Builder $search) => $search
+                    ->where('name', 'like', '%'.$data['search'].'%')
+                    ->orWhere('email', 'like', '%'.$data['search'].'%')
+                    ->orWhere('phone', 'like', '%'.$data['search'].'%')),
             )
             ->withCount('agreements')
             ->orderBy('name')
@@ -57,6 +62,7 @@ class FuelCreditController extends Controller
         $branchId = $this->branchId($request);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('fuel_credit_customers', 'email')->where('branch_id', $branchId)],
             'phone' => ['nullable', 'string', 'max:40'],
         ]);
 
@@ -67,12 +73,14 @@ class FuelCreditController extends Controller
             $customer = FuelCreditCustomer::create([
                 'branch_id' => $branchId,
                 'name' => $data['name'],
+                'email' => $data['email'] ?? null,
                 'phone' => $data['phone'] ?? null,
                 'created_by' => $request->user()->id,
             ]);
 
             $this->audit($request->user(), $branchId, 'fuel-credit.customer.created', $customer, null, [
                 'name' => $customer->name,
+                'email' => $customer->email,
                 'phone' => $customer->phone,
             ]);
 
@@ -87,19 +95,137 @@ class FuelCreditController extends Controller
         abort_unless($request->user()->canAccessBranch((int) $customer->branch_id), 404);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('fuel_credit_customers', 'email')
+                ->where('branch_id', $customer->branch_id)
+                ->ignore($customer->id)],
             'phone' => ['nullable', 'string', 'max:40'],
         ]);
         DB::transaction(function () use ($request, $customer, $data): void {
             $lockedCustomer = FuelCreditCustomer::query()->whereKey($customer->id)->lockForUpdate()->firstOrFail();
-            $before = ['name' => $lockedCustomer->name, 'phone' => $lockedCustomer->phone];
+            $before = ['name' => $lockedCustomer->name, 'email' => $lockedCustomer->email, 'phone' => $lockedCustomer->phone];
             $lockedCustomer->update($data);
             $this->audit($request->user(), (int) $lockedCustomer->branch_id, 'fuel-credit.customer.updated', $lockedCustomer, $before, [
                 'name' => $lockedCustomer->name,
+                'email' => $lockedCustomer->email,
                 'phone' => $lockedCustomer->phone,
             ]);
         });
 
         return response()->json(['data' => $customer->fresh()]);
+    }
+
+    public function exportCustomers(Request $request)
+    {
+        $branchId = $this->branchId($request);
+        $customers = FuelCreditCustomer::query()->where('branch_id', $branchId)->orderBy('name')->orderBy('id');
+
+        return response()->streamDownload(function () use ($customers): void {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['Name', 'Email', 'Phone']);
+
+            foreach ($customers->lazy(500) as $customer) {
+                fputcsv($output, [
+                    $this->safeCsvText($customer->name),
+                    $this->safeCsvText($customer->email),
+                    $this->safeCsvText($customer->phone),
+                ]);
+            }
+
+            fclose($output);
+        }, 'fuel-credit-customers-branch-'.$branchId.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function importCustomers(Request $request): JsonResponse
+    {
+        $branchId = $this->branchId($request);
+        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:10240']]);
+        $file = $request->file('file');
+        $path = $file->getRealPath();
+        if ($path === false) {
+            throw ValidationException::withMessages(['file' => 'The uploaded customer file could not be read.']);
+        }
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            throw ValidationException::withMessages(['file' => 'The uploaded customer file could not be read.']);
+        }
+
+        try {
+            $headers = fgetcsv($handle, null, ',', '"', '');
+            if ($headers === false) {
+                throw ValidationException::withMessages(['file' => 'The customer CSV is empty.']);
+            }
+            $headers[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $headers[0]);
+            $headers = array_map(static fn ($header): string => strtolower(trim((string) $header)), $headers);
+            if (count($headers) !== 3 || $headers !== ['name', 'email', 'phone']) {
+                throw ValidationException::withMessages(['file' => 'Use the customer CSV template with Name, Email, and Phone columns in that order.']);
+            }
+
+            $rows = [];
+            $errors = [];
+            $emails = [];
+            $rowNumber = 1;
+            while (($row = fgetcsv($handle, null, ',', '"', '')) !== false) {
+                $rowNumber++;
+                if ($row === [null] || (count($row) === 1 && trim((string) $row[0]) === '')) {
+                    continue;
+                }
+                if (count($rows) >= 5000) {
+                    throw ValidationException::withMessages(['file' => 'A customer import may contain at most 5,000 rows.']);
+                }
+                if (count($row) !== 3) {
+                    $errors["row_{$rowNumber}"] = "Row {$rowNumber} must contain exactly three columns.";
+                    continue;
+                }
+
+                $customer = [
+                    'name' => trim((string) $row[0]),
+                    'email' => trim((string) $row[1]) ?: null,
+                    'phone' => trim((string) $row[2]) ?: null,
+                ];
+                $validator = Validator::make($customer, [
+                    'name' => ['required', 'string', 'max:255'],
+                    'email' => ['nullable', 'email', 'max:255', Rule::unique('fuel_credit_customers', 'email')->where('branch_id', $branchId)],
+                    'phone' => ['nullable', 'string', 'max:40'],
+                ]);
+                if ($validator->fails()) {
+                    $errors["row_{$rowNumber}"] = "Row {$rowNumber}: ".$validator->errors()->first();
+                    continue;
+                }
+                if ($customer['email'] !== null) {
+                    $emailKey = strtolower($customer['email']);
+                    if (isset($emails[$emailKey])) {
+                        $errors["row_{$rowNumber}"] = "Row {$rowNumber}: Email is duplicated in this file.";
+                        continue;
+                    }
+                    $emails[$emailKey] = true;
+                }
+                $rows[] = $customer;
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages(array_slice($errors, 0, 50, true));
+        }
+        if ($rows === []) {
+            throw ValidationException::withMessages(['file' => 'The customer CSV contains no customer rows.']);
+        }
+
+        DB::transaction(function () use ($request, $rows, $branchId): void {
+            $branch = Branch::query()->whereKey($branchId)->lockForUpdate()->firstOrFail();
+            abort_unless($branch->is_active, 422, 'This branch is inactive.');
+            foreach ($rows as $data) {
+                $customer = FuelCreditCustomer::create([
+                    ...$data,
+                    'branch_id' => $branchId,
+                    'created_by' => $request->user()->id,
+                ]);
+                $this->audit($request->user(), $branchId, 'fuel-credit.customer.imported', $customer, null, $data);
+            }
+        });
+
+        return response()->json(['message' => count($rows).' customer records imported.', 'imported' => count($rows)], 201);
     }
 
     public function updateCustomerStatus(Request $request, FuelCreditCustomer $customer): JsonResponse
@@ -679,5 +805,14 @@ class FuelCreditController extends Controller
             'after' => $after,
             'occurred_at' => now(),
         ]);
+    }
+
+    private function safeCsvText(?string $value): ?string
+    {
+        if ($value !== null && preg_match('/^[\s]*[=+\-@]/u', $value) === 1) {
+            return "'".$value;
+        }
+
+        return $value;
     }
 }

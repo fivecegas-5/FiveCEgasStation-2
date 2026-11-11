@@ -8,7 +8,7 @@
 </head>
 <body>
     @php($uiBranches = \App\Models\Branch::visibleTo(auth()->user())->where('is_active', true)->orderBy('name')->get(['id', 'name']))
-    @php($activeUiBranch = $uiBranches->firstWhere('id', (int) session('active_branch_id')) ?? auth()->user()->branch)
+    @php($activeUiBranch = $uiBranches->firstWhere('id', (int) session('active_branch_id')) ?? $uiBranches->firstWhere('id', auth()->user()->branch_id) ?? $uiBranches->first())
     <div
         id="react-app-root"
         data-page="@yield('react-page', 'dashboard')"
@@ -18,20 +18,24 @@
         data-user-name="{{ auth()->user()->name }}"
         data-role="{{ auth()->user()->role->value }}"
         data-branch-name="{{ $activeUiBranch?->name ?? 'All branches' }}"
-        data-active-branch-id="{{ session('active_branch_id', auth()->user()->branch_id) }}"
+        data-active-branch-id="{{ $activeUiBranch?->id ?? '' }}"
         data-branch-options="{{ $uiBranches->map(fn ($branch) => ['id' => $branch->id, 'name' => $branch->name])->values()->toJson() }}"
         data-status="{{ session('success', '') }}"
         data-error="{{ $errors->first() }}"
         data-setup-data="@yield('react-data', '{}')"
         data-workspace-url="{{ route('api.workspace') }}"
-        data-batches-url="{{ route('api.sales.import-batches.index') }}"
-        data-preview-url="{{ route('api.sales.import.preview') }}"
-        data-template-url="{{ route('api.sales.import.template') }}"
-        data-batch-url-template="{{ route('api.sales.import-batches.show', ['batch' => '__BATCH_ID__']) }}"
         data-credit-customers-url="{{ route('api.credit.customers.index') }}"
+        data-credit-customers-import-url="{{ route('api.credit.customers.import') }}"
+        data-credit-customers-export-url="{{ route('api.credit.customers.export') }}"
         data-credit-agreements-url="{{ route('api.credit.agreements.index') }}"
         data-credit-payments-url="{{ url('/api/credit/payments') }}"
+        data-reports-summary-url="{{ route('api.reports.summary') }}"
+        data-reports-sales-csv-url="{{ route('api.reports.sales.csv') }}"
+        data-notifications-url="{{ route('api.notifications.index') }}"
+        data-notification-read-url-template="{{ route('api.notifications.read', ['notification' => '__NOTIFICATION_ID__']) }}"
+        data-notifications-read-all-url="{{ route('api.notifications.read-all') }}"
     ></div>
+    @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </body>
 </html>

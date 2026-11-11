@@ -40,4 +40,17 @@ class NotificationController extends Controller
             ],
         ]);
     }
+
+    public function markAllRead(Request $request): JsonResponse
+    {
+        $markedRead = $request->user()->unreadNotifications()->update([
+            'read_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'marked_read' => $markedRead,
+            'unread_count' => 0,
+        ]);
+    }
 }
